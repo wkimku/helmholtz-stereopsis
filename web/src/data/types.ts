@@ -12,6 +12,13 @@ export type CostVolumeMeta = {
   x_extent: number
 }
 
+export type SigmaVolumeMeta = {
+  shape: [number, number, number, number]   // [h, w, nz, 3]
+  z_min: number
+  z_max: number
+  x_extent: number
+}
+
 export type SceneMeta = {
   name: string
   width: number
@@ -25,6 +32,7 @@ export type SceneMeta = {
   normal_shape: [number, number, number]
   has_depth_fc?: boolean
   cost_volume: CostVolumeMeta | null
+  sigma_volume?: SigmaVolumeMeta | null
   object_pose?: { location: number[]; rotation_euler: number[] }
 }
 

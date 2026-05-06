@@ -1,93 +1,270 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useScene } from '../hooks/useScene'
+import { loadSigmaVolume, sigmaCurvesAtPixel } from '../data/loader'
+import type { SigmaVolumeData } from '../data/loader'
+
+type Pixel = { u: number; v: number; uNorm: number; vNorm: number }
 
 /**
- * §4 illustration: pretend you have a single pixel and you're sweeping the
- * candidate depth. Show the three singular values of W(P) as bars; at the
- * true depth (z=3.0) the smallest one drops to zero, signaling rank-2 and
- * the existence of a non-trivial null vector — the surface normal.
+ * §4 figure: click any pixel on the base image and watch the three singular
+ * values of W(P) — sigma_1 <= sigma_2 <= sigma_3 — as a function of candidate
+ * depth. Curves come straight from the precomputed sigma volume (downsampled).
  *
- * The shape of the curves is a stylized model of the real behavior, not real
- * data. The point is to make "rank-2 search" visible at a glance.
+ * At the true depth sigma_1 dives toward zero (rank-deficient direction = the
+ * surface normal). sigma_2 and sigma_3 stay non-zero. Off-surface, all three
+ * are roughly the same order of magnitude — that's the "no rank deficiency"
+ * regime.
  */
 export function WMatrixFigure() {
-  const Z_MIN = 2.0
-  const Z_MAX = 4.0
-  const Z_TRUE = 3.0
-  const [z, setZ] = useState(2.4)
+  const { scene, error } = useScene()
+  const [sv, setSv] = useState<SigmaVolumeData | null>(null)
+  const [pixel, setPixel] = useState<Pixel | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const dist = Math.abs(z - Z_TRUE)
-  // sigma1 stays large (well-conditioned in the dominant direction)
-  const sigma1 = 1.0
-  // sigma2 drops a bit at the true depth too (W gets closer to rank-1 in shape)
-  const sigma2 = 0.6 + 0.05 * Math.cos((z - Z_TRUE) * Math.PI)
-  // sigma3 has a sharp valley at z_true; this is the rank-2 condition
-  const sigma3 = Math.min(1.0, 1.6 * dist * dist) + 0.02
+  useEffect(() => {
+    if (!scene) return
+    setLoading(true)
+    setSv(null)
+    setPixel(null)
+    loadSigmaVolume(scene).then((data) => {
+      setSv(data)
+      setLoading(false)
+    })
+  }, [scene])
 
-  // Layout
-  const W = 360
-  const H = 180
-  const pad = { l: 40, r: 12, t: 14, b: 36 }
-  const cw = (W - pad.l - pad.r) / 3
-  const yScale = (v: number) => H - pad.b - v * (H - pad.t - pad.b)
-
-  const bars: { label: string; v: number; color: string }[] = [
-    { label: 'σ₁', v: sigma1, color: '#6366f1' },
-    { label: 'σ₂', v: sigma2, color: '#22d3ee' },
-    { label: 'σ₃', v: sigma3, color: '#f59e0b' },
-  ]
-
-  const closeToTrue = dist < 0.06
+  if (error) return <div className="text-sm text-red-500">{error}</div>
+  if (!scene) return <div className="text-sm text-slate-500">Loading scene…</div>
 
   return (
-    <figure className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-        <line x1={pad.l} y1={H - pad.b} x2={W - pad.r} y2={H - pad.b} stroke="#cbd5e1" />
-        {bars.map((b, i) => {
-          const x = pad.l + i * cw + 12
-          const w = cw - 24
-          const top = yScale(b.v)
-          return (
-            <g key={b.label}>
-              <rect
-                x={x}
-                y={top}
-                width={w}
-                height={H - pad.b - top}
-                fill={b.color}
-                rx={4}
-                style={{ transition: 'all 250ms ease' }}
-              />
-              <text x={x + w / 2} y={H - pad.b + 16} textAnchor="middle" fontSize="12" fill="#0e1116">
-                {b.label}
-              </text>
-              <text x={x + w / 2} y={Math.max(pad.t + 12, top - 6)} textAnchor="middle" fontSize="10" fill="#475569">
-                {b.v.toFixed(2)}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
-
-      <div className="mt-3 space-y-2">
-        <div className="flex items-center justify-between text-sm text-slate-600">
-          <span>candidate depth</span>
-          <span className="font-mono tabular-nums">z = {z.toFixed(2)}</span>
-        </div>
-        <input
-          type="range"
-          min={Z_MIN}
-          max={Z_MAX}
-          step={0.01}
-          value={z}
-          onChange={(e) => setZ(Number(e.target.value))}
-          className="w-full accent-accent"
-        />
-        <p className={`text-xs ${closeToTrue ? 'text-emerald-700' : 'text-slate-500'}`}>
-          {closeToTrue
-            ? 'Near the true depth: σ₃ → 0, so W is rank-2 and admits a non-trivial null vector — that null vector is the surface normal.'
-            : 'Away from the true depth: all three singular values are nonzero, so W is full rank and the constraint W·n = 0 has no non-trivial solution.'}
+    <figure className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <ClickableImage src={`${scene.baseUrl}base_rgb.png`} onPick={setPixel} marker={pixel} />
+      <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <p className="text-sm font-medium text-ink">Singular values vs candidate depth</p>
+        <p className="mt-1 text-xs text-slate-500">
+          σ₁, σ₂, σ₃ of W(P) at the clicked pixel as the candidate depth sweeps
+          along the camera ray. The vertical line marks the depth where σ₂/σ₁
+          peaks.
         </p>
+        {loading && <div className="mt-6 text-sm text-slate-500">Loading sigma volume…</div>}
+        {!loading && !sv && (
+          <div className="mt-6 text-sm text-slate-500">
+            No sigma volume shipped with this scene yet — re-run the pipeline export.
+          </div>
+        )}
+        {sv && pixel && <SigmaPlot sv={sv} pixel={pixel} />}
+        {sv && !pixel && (
+          <div className="mt-6 text-sm text-slate-500">Click anywhere on the image →</div>
+        )}
       </div>
     </figure>
+  )
+}
+
+function ClickableImage({
+  src,
+  onPick,
+  marker,
+}: {
+  src: string
+  onPick: (p: Pixel) => void
+  marker: Pixel | null
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  function handleClick(e: React.MouseEvent<HTMLDivElement>) {
+    const rect = ref.current!.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    onPick({
+      u: x,
+      v: y,
+      uNorm: Math.max(0, Math.min(1, x / rect.width)),
+      vNorm: Math.max(0, Math.min(1, y / rect.height)),
+    })
+  }
+
+  return (
+    <div
+      ref={ref}
+      className="relative aspect-square cursor-crosshair overflow-hidden rounded-lg border border-slate-200 bg-black"
+      onClick={handleClick}
+    >
+      <img src={src} alt="base" className="absolute inset-0 h-full w-full object-contain" />
+      {marker && (
+        <div
+          className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lg"
+          style={{ left: marker.u, top: marker.v, backgroundColor: '#6366f1' }}
+        />
+      )}
+    </div>
+  )
+}
+
+const COLORS = {
+  sigma1: '#6366f1', // smallest — the rank-deficient direction at the true depth
+  sigma2: '#22d3ee', // middle
+  sigma3: '#f59e0b', // largest
+}
+
+function SigmaPlot({ sv, pixel }: { sv: SigmaVolumeData; pixel: Pixel }) {
+  const { z, sigma1, sigma2, sigma3 } = useMemo(
+    () => sigmaCurvesAtPixel(sv, pixel.uNorm, pixel.vNorm),
+    [sv, pixel],
+  )
+
+  // Find peak of sigma_2 / sigma_1 (the cost score from §4 prose).
+  const { peakZ, peakIdx } = useMemo(() => {
+    let best = 0
+    let bestVal = -Infinity
+    for (let i = 0; i < sigma1.length; i++) {
+      const r = sigma2[i] / Math.max(1e-12, sigma1[i])
+      if (r > bestVal) {
+        bestVal = r
+        best = i
+      }
+    }
+    return { peakZ: z[best], peakIdx: best }
+  }, [z, sigma1, sigma2])
+
+  // Plot on a log y-axis: sigma_1 can be many orders of magnitude smaller than
+  // sigma_3 at the rank-deficient depth, and the "dip" we want to show only
+  // becomes visible once we span a few decades.
+  const W = 360
+  const H = 220
+  const pad = { l: 44, r: 12, t: 14, b: 28 }
+  const xMin = z[0]
+  const xMax = z[z.length - 1]
+
+  const allVals = [...sigma1, ...sigma2, ...sigma3].filter((v) => Number.isFinite(v) && v > 0)
+  const rawMax = allVals.length ? Math.max(...allVals) : 1
+  const rawMin = allVals.length ? Math.min(...allVals) : 1e-6
+  // Clamp the log-y window so it never collapses to a single point.
+  const logMax = Math.log10(rawMax)
+  const logMin = Math.min(logMax - 1, Math.log10(Math.max(rawMin, rawMax * 1e-6)))
+  const eps = rawMax * 1e-7
+
+  const xScale = (v: number) => pad.l + ((v - xMin) / (xMax - xMin)) * (W - pad.l - pad.r)
+  const yScale = (v: number) => {
+    const lv = Math.log10(Math.max(v, eps))
+    const t = (lv - logMin) / Math.max(1e-9, logMax - logMin)
+    return H - pad.b - t * (H - pad.t - pad.b)
+  }
+
+  const polyline = (vals: number[]) =>
+    z.map((zi, i) => `${xScale(zi).toFixed(1)},${yScale(vals[i]).toFixed(1)}`).join(' ')
+
+  // Pick integer log decades inside [logMin, logMax] for y-axis labels.
+  const decades: number[] = []
+  for (let d = Math.ceil(logMin); d <= Math.floor(logMax); d++) decades.push(d)
+  if (decades.length === 0) decades.push(Math.round((logMin + logMax) / 2))
+
+  return (
+    <div className="mt-4 space-y-2">
+      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+        <rect
+          x={pad.l}
+          y={pad.t}
+          width={W - pad.l - pad.r}
+          height={H - pad.t - pad.b}
+          fill="#fafafa"
+          stroke="#e5e7eb"
+        />
+        {/* y-axis: log decades */}
+        {decades.map((d) => (
+          <g key={d}>
+            <line
+              x1={pad.l}
+              y1={yScale(Math.pow(10, d))}
+              x2={W - pad.r}
+              y2={yScale(Math.pow(10, d))}
+              stroke="#e5e7eb"
+            />
+            <text
+              x={pad.l - 4}
+              y={yScale(Math.pow(10, d))}
+              textAnchor="end"
+              dominantBaseline="middle"
+              fontSize="10"
+              fill="#64748b"
+            >
+              10{toSuperscript(d)}
+            </text>
+          </g>
+        ))}
+        {/* x-axis ticks */}
+        {[0, 0.5, 1].map((t) => {
+          const v = xMin + t * (xMax - xMin)
+          return (
+            <text
+              key={t}
+              x={xScale(v)}
+              y={H - pad.b + 14}
+              textAnchor="middle"
+              fontSize="10"
+              fill="#64748b"
+            >
+              {v.toFixed(2)}
+            </text>
+          )
+        })}
+        {/* Curves: largest first so the smallest one paints on top. */}
+        <polyline points={polyline(sigma3)} fill="none" stroke={COLORS.sigma3} strokeWidth="1.6" />
+        <polyline points={polyline(sigma2)} fill="none" stroke={COLORS.sigma2} strokeWidth="1.6" />
+        <polyline points={polyline(sigma1)} fill="none" stroke={COLORS.sigma1} strokeWidth="2.0" />
+        {/* Peak marker on sigma_1 (where it dips). */}
+        <circle cx={xScale(peakZ)} cy={yScale(sigma1[peakIdx])} r={4} fill={COLORS.sigma1} />
+        <line
+          x1={xScale(peakZ)}
+          y1={pad.t}
+          x2={xScale(peakZ)}
+          y2={H - pad.b}
+          stroke={COLORS.sigma1}
+          strokeDasharray="3 3"
+          opacity="0.4"
+        />
+        <text x={W / 2} y={H - 4} textAnchor="middle" fontSize="10" fill="#64748b">
+          candidate depth z
+        </text>
+        <text
+          x={pad.l - 36}
+          y={(H - pad.b + pad.t) / 2}
+          textAnchor="middle"
+          fontSize="10"
+          fill="#64748b"
+          transform={`rotate(-90 ${pad.l - 36} ${(H - pad.b + pad.t) / 2})`}
+        >
+          σ (log)
+        </text>
+      </svg>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-700">
+        <Legend color={COLORS.sigma1} label="σ₁ (smallest)" />
+        <Legend color={COLORS.sigma2} label="σ₂" />
+        <Legend color={COLORS.sigma3} label="σ₃ (largest)" />
+        <span className="ml-auto">
+          peak σ₂/σ₁ at <span className="font-mono">z = {peakZ.toFixed(3)}</span>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+const SUPERSCRIPT_DIGITS: Record<string, string> = {
+  '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+  '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+  '-': '⁻',
+}
+
+function toSuperscript(n: number): string {
+  return String(n)
+    .split('')
+    .map((c) => SUPERSCRIPT_DIGITS[c] ?? c)
+    .join('')
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="inline-block h-2 w-3 rounded-sm" style={{ backgroundColor: color }} />
+      {label}
+    </span>
   )
 }

@@ -409,5 +409,16 @@
     "z_min": 2.0,
     "z_max": 4.0,
     "x_extent": 2.0
+  },
+  "sigma_volume": {
+    "shape": [
+      128,
+      128,
+      64,
+      3
+    ],
+    "z_min": 2.0,
+    "z_max": 4.0,
+    "x_extent": 2.0
   }
 }

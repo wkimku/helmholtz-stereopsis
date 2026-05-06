@@ -53,11 +53,13 @@ export function Section04WMatrix() {
 
       <WMatrixFigure />
       <p className="figure-caption">
-        Stylized illustration of the three singular values of <code>W(P)</code>{' '}
-        as the candidate depth sweeps along the camera ray. At the true depth
-        the smallest singular value drops out and the matrix becomes rank-2.
-        The shape of the curves on real data follows the same trend — a single
-        sharp dip — except where the constraint is degenerate.
+        Real singular values of <code>W(P)</code> at a clicked pixel as the
+        candidate depth sweeps along the camera ray. At the true depth{' '}
+        <Inline>{`\\sigma_1`}</Inline> dips toward zero and the matrix becomes
+        (approximately) rank-2; <Inline>{`\\sigma_2`}</Inline> and{' '}
+        <Inline>{`\\sigma_3`}</Inline> stay non-zero. Click around — textured
+        regions give a sharp dip; flat or symmetric regions give shallow or
+        multi-modal curves (we'll come back to that in §9).
       </p>
 
       <p className="section-bridge">

@@ -131,6 +131,20 @@ def downsample_cost_volume(cv: np.ndarray, target_hw: int = 256, target_z: int =
     return out.astype(np.float32)
 
 
+def downsample_sigma_volume(sv: np.ndarray, target_hw: int = 256, target_z: int = 128) -> np.ndarray:
+    """Average-pool a (H, W, nz, 3) sigma volume to lower resolution."""
+    H, W, Z, C = sv.shape
+    sy = max(1, H // target_hw)
+    sx = max(1, W // target_hw)
+    sz = max(1, Z // target_z)
+    Ht = (H // sy) * sy
+    Wt = (W // sx) * sx
+    Zt = (Z // sz) * sz
+    sv = sv[:Ht, :Wt, :Zt, :]
+    out = sv.reshape(Ht // sy, sy, Wt // sx, sx, Zt // sz, sz, C).mean(axis=(1, 3, 5))
+    return out.astype(np.float32)
+
+
 def run_precompute(
     scene_dir: Path,
     x_extent: float = 2.0,
@@ -164,6 +178,7 @@ def run_precompute(
         z_candidates=z_candidates,
         smoothing_size=smoothing,
         return_cost_volume=save_cost_volume,
+        return_sigma_volume=save_cost_volume,
         progress_fn=lambda j, n: print(f"  depth {j+1}/{n}", end="\r"),
     )
     print()
@@ -211,6 +226,10 @@ def run_precompute(
             "z_min": float(z_min), "z_max": float(z_max), "nz_full": int(nz),
             "x_extent": float(x_extent),
         }, indent=2))
+
+    if result.sigma_volume is not None:
+        sv_ds = downsample_sigma_volume(result.sigma_volume, cost_volume_target, cost_volume_z_target)
+        np.save(out / "sigma_volume_ds.npy", sv_ds)
 
     print(f"Wrote results to {out}")
 

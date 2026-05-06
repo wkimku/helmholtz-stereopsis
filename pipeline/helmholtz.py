@@ -34,7 +34,8 @@ class DepthSearchResult:
     normal: np.ndarray           # (H, W, 3) float, unit length
     cost: np.ndarray             # (H, W) float, best (largest) cost per pixel
     depth_idx: np.ndarray        # (H, W) int, index into z_candidates
-    cost_volume: Optional[np.ndarray] = None  # (H, W, nz) if requested
+    cost_volume: Optional[np.ndarray] = None       # (H, W, nz)
+    sigma_volume: Optional[np.ndarray] = None      # (H, W, nz, 3) singular values, ascending
 
 
 def project_to_pixel(points_cam: np.ndarray, intr: CameraIntrinsics) -> tuple[np.ndarray, np.ndarray]:
@@ -132,6 +133,7 @@ def depth_search(
     z_candidates: np.ndarray,      # (nz,) world z values to search
     smoothing_size: int = 6,
     return_cost_volume: bool = False,
+    return_sigma_volume: bool = False,
     progress_fn=None,              # optional callable(j, nz)
 ) -> DepthSearchResult:
     """Sweep z-planes; per pixel keep the best (largest) cost and its normal."""
@@ -145,6 +147,7 @@ def depth_search(
     best_idx = np.zeros((H, W), dtype=np.int32)
     best_normal = np.zeros((H, W, 3), dtype=np.float32)
     cost_volume = np.zeros((H, W, nz), dtype=np.float32) if return_cost_volume else None
+    sigma_volume = np.zeros((H, W, nz, 3), dtype=np.float32) if return_sigma_volume else None
 
     for j, z in enumerate(z_candidates):
         if progress_fn is not None:
@@ -152,13 +155,17 @@ def depth_search(
 
         surface_pts = np.stack([X, Y, np.full_like(X, z)], axis=-1).astype(np.float32)
         W_mat = build_w_matrix(surface_pts, img_stack, camera_pos, light_pos, intr, num_pairs)
-        cost, normal, _ = cost_and_normal_from_w(W_mat)
+        cost, normal, eigvals = cost_and_normal_from_w(W_mat)
 
         if smoothing_size and smoothing_size > 1:
             cost = uniform_filter(cost, size=smoothing_size)
 
         if return_cost_volume:
             cost_volume[:, :, j] = cost
+        if return_sigma_volume:
+            # eigvals are eigenvalues of W^T W, ascending — singular values are
+            # the square roots. Clip tiny negatives that come from FP rounding.
+            sigma_volume[:, :, j, :] = np.sqrt(np.maximum(eigvals, 0.0))
 
         better = cost > best_cost
         best_cost = np.where(better, cost, best_cost)
@@ -174,6 +181,7 @@ def depth_search(
         cost=best_cost,
         depth_idx=best_idx,
         cost_volume=cost_volume,
+        sigma_volume=sigma_volume,
     )
 
 

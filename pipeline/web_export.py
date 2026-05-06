@@ -85,6 +85,22 @@ def export_scene(scene_dir: Path, out_dir: Path) -> None:
             "x_extent": cv_meta["x_extent"],
         }
 
+    sigma_vol_meta = None
+    sigma_volume_path = results / "sigma_volume_ds.npy"
+    if sigma_volume_path.exists():
+        sv = np.load(sigma_volume_path).astype(np.float32, copy=False)
+        sv.tofile(out_dir / "sigma_volume.bin")
+        # Sigma volume rides on the cost volume's z-grid + x-extent metadata.
+        sv_z_min = cost_vol_meta["z_min"] if cost_vol_meta is not None else None
+        sv_z_max = cost_vol_meta["z_max"] if cost_vol_meta is not None else None
+        sv_x_extent = cost_vol_meta["x_extent"] if cost_vol_meta is not None else None
+        sigma_vol_meta = {
+            "shape": list(sv.shape),
+            "z_min": sv_z_min,
+            "z_max": sv_z_max,
+            "x_extent": sv_x_extent,
+        }
+
     # 3. Write a single meta.json with everything the web app needs to know.
     H, W = int(depth.shape[0]), int(depth.shape[1])
     meta = {
@@ -107,6 +123,7 @@ def export_scene(scene_dir: Path, out_dir: Path) -> None:
         "cost_shape": [H, W],
         "has_depth_fc": bool(has_fc),
         "cost_volume": cost_vol_meta,
+        "sigma_volume": sigma_vol_meta,
     }
     (out_dir / "meta.json").write_text(json.dumps(meta, indent=2))
     print(f"Exported scene to {out_dir}")

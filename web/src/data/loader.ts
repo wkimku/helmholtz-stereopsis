@@ -60,3 +60,56 @@ export function costCurveAtPixel(
   }
   return { z, cost }
 }
+
+export type SigmaVolumeData = {
+  values: Float32Array      // length = h * w * nz * 3, row-major (y, x, z, c)
+  h: number
+  w: number
+  nz: number
+  zMin: number
+  zMax: number
+}
+
+export async function loadSigmaVolume(scene: LoadedScene): Promise<SigmaVolumeData | null> {
+  const sv = scene.meta.sigma_volume
+  if (!sv) return null
+  const values = await loadFloat32(scene.baseUrl + 'sigma_volume.bin')
+  const [h, w, nz] = sv.shape
+  return {
+    values,
+    h,
+    w,
+    nz,
+    zMin: sv.z_min,
+    zMax: sv.z_max,
+  }
+}
+
+/** Look up sigma_1, sigma_2, sigma_3 (z) curves for one (image-space normalized)
+ * pixel. We follow the §4 ascending convention: sigma1 <= sigma2 <= sigma3,
+ * so sigma1 is the singular value that drops to zero at the true depth. */
+export function sigmaCurvesAtPixel(
+  sv: SigmaVolumeData,
+  /** image x in [0, 1] */
+  uNorm: number,
+  /** image y in [0, 1] */
+  vNorm: number,
+): { z: number[]; sigma1: number[]; sigma2: number[]; sigma3: number[] } {
+  const xi = Math.min(sv.w - 1, Math.max(0, Math.floor(uNorm * sv.w)))
+  const yi = Math.min(sv.h - 1, Math.max(0, Math.floor(vNorm * sv.h)))
+  const dz = (sv.zMax - sv.zMin) / Math.max(1, sv.nz - 1)
+  const z = new Array<number>(sv.nz)
+  const sigma1 = new Array<number>(sv.nz)
+  const sigma2 = new Array<number>(sv.nz)
+  const sigma3 = new Array<number>(sv.nz)
+  for (let k = 0; k < sv.nz; k++) {
+    z[k] = sv.zMin + k * dz
+    // values laid out (h, w, nz, 3): idx = ((yi * w + xi) * nz + k) * 3 + c
+    const base = ((yi * sv.w + xi) * sv.nz + k) * 3
+    // stored ascending [smallest, middle, largest]
+    sigma1[k] = sv.values[base + 0]
+    sigma2[k] = sv.values[base + 1]
+    sigma3[k] = sv.values[base + 2]
+  }
+  return { z, sigma1, sigma2, sigma3 }
+}
