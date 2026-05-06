@@ -27,11 +27,13 @@ export function Section09Limitations() {
       <p className="mt-8">Two more limitations show up across all three scenes:</p>
       <ul className="my-4 list-disc space-y-2 pl-5 text-slate-800">
         <li>
-          <strong>Occlusion</strong>. The constraint requires both members of a
-          reciprocal pair to actually see the surface point. Anything
-          self-occluded — the back of Suzanne's ear; the corner of the cube
-          facing away from the camera — loses one or more rows of <code>W</code>{' '}
-          and the rank measure stops being meaningful there.
+          <strong>Occlusion</strong>. The constraint requires both halves of a
+          reciprocal pair to actually capture the same surface point. In a
+          region where the surface is visible from one camera position in the
+          pair but hidden from the other — concave dips around Suzanne's eye
+          sockets, the inside corner of the cube — the second image samples
+          some other surface entirely, so the corresponding row of{' '}
+          <code>W</code> is corrupted and the rank score stops being meaningful.
         </li>
         <li>
           <strong>Discretization</strong>. Mapping a continuous scene through a
@@ -44,9 +46,12 @@ export function Section09Limitations() {
       <p>
         Despite all of this, the headline result is unchanged: this is one of
         the very few surface-reconstruction methods that makes <em>no</em>{' '}
-        assumption about the object's reflectance. Mirror-like, glossy,
-        translucent, anisotropic — as long as the BRDF is reciprocal (almost
-        every real material), it is in scope.
+        assumption about the surface BRDF. Mirror-like, glossy, anisotropic,
+        even iridescent — as long as the reflectance is reciprocal (almost every
+        real <em>opaque</em> material), the algorithm is in scope. Highly
+        translucent or fluorescent surfaces are <em>not</em>: they violate the
+        single-bounce surface-reflection model the per-pixel constraint is
+        derived from.
       </p>
 
       <p className="section-bridge">
