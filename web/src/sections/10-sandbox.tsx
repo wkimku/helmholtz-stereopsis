@@ -14,10 +14,18 @@ export function Section10Sandbox() {
         <>
           Everything up to here is precomputed. If you want to actually push
           the algorithm — different objects, materials, noise levels, depth
-          resolutions — clone the repo, install Blender, and run the local
-          pipeline server. This section then becomes live: the controls below
-          fire off real Blender renders and depth-search runs on your machine,
-          and the results stream back.
+          resolutions — clone the{' '}
+          <a
+            href="https://github.com/wkimku/helmholtz-stereopsis"
+            className="text-accent hover:underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            repo
+          </a>
+          , install Blender, and run the local pipeline server. This section
+          then becomes live: the controls below fire off real Blender renders
+          and depth-search runs on your machine, and the results stream back.
         </>
       }
     >
@@ -34,8 +42,16 @@ export function Section10Sandbox() {
       <SandboxSection />
 
       <p className="mt-8 text-xs text-slate-500">
-        See <code>sandbox/README.md</code> in the repo for the install steps
-        and parameter notes.
+        See{' '}
+        <a
+          href="https://github.com/wkimku/helmholtz-stereopsis/blob/main/sandbox/README.md"
+          className="text-accent hover:underline"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <code>sandbox/README.md</code>
+        </a>{' '}
+        in the repo for the install steps and parameter notes.
       </p>
 
       <div className="my-12 grid grid-cols-1 gap-4 md:grid-cols-2">
