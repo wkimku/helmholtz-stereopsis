@@ -1,5 +1,4 @@
 import { Section } from '../components/Section'
-import { useScene } from '../hooks/useScene'
 import { sectionById } from './manifest'
 
 const meta = sectionById('intro')
@@ -22,8 +21,6 @@ export function Section01Introduction() {
         </>
       }
     >
-      <HeroPreview />
-
       <p>
         This page walks through the algorithm one step at a time, on real
         renders. Every step is interactive: pick the number of reciprocal pairs
@@ -67,49 +64,6 @@ export function Section01Introduction() {
         reciprocity.
       </p>
     </Section>
-  )
-}
-
-/**
- * Three-up preview at the top of §1: input photo → recovered depth → recovered
- * normal. Pulled live from the active scene's exported assets so it switches
- * with the global scene picker.
- */
-function HeroPreview() {
-  const { scene } = useScene()
-  if (!scene) {
-    return (
-      <div className="my-8 grid h-40 grid-cols-1 gap-3 md:grid-cols-3">
-        <div className="rounded-lg bg-slate-100" />
-        <div className="rounded-lg bg-slate-100" />
-        <div className="rounded-lg bg-slate-100" />
-      </div>
-    )
-  }
-  return (
-    <figure className="my-8">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        <PreviewTile src={`${scene.baseUrl}base_rgb.png`} caption="Input photo" />
-        <PreviewTile src={`${scene.baseUrl}depth_vis.png`} caption="Recovered depth" />
-        <PreviewTile src={`${scene.baseUrl}normal_vis.png`} caption="Recovered normals" />
-      </div>
-      <figcaption className="mt-2 text-center text-xs text-slate-500">
-        From a stack of reciprocal-pair photographs (left) the algorithm
-        recovers per-pixel depth and surface normals (center, right). No mesh,
-        no BRDF model, no texture required.
-      </figcaption>
-    </figure>
-  )
-}
-
-function PreviewTile({ src, caption }: { src: string; caption: string }) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-      <div className="aspect-square overflow-hidden rounded-md bg-black">
-        <img src={src} alt={caption} className="h-full w-full object-contain" />
-      </div>
-      <p className="mt-2 text-center text-xs font-medium text-slate-600">{caption}</p>
-    </div>
   )
 }
 
