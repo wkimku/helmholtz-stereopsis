@@ -1,0 +1,17 @@
+{
+  "count": 164991,
+  "pose_names": [
+    "sphere_front",
+    "sphere_back",
+    "sphere_left",
+    "sphere_right",
+    "sphere_up",
+    "sphere_down"
+  ],
+  "format": {
+    "points": "float32 little-endian, shape (count, 3)",
+    "normals": "float32 little-endian, shape (count, 3)",
+    "colors": "float32 little-endian, shape (count, 3) in [0,1]",
+    "view_indices": "int8 little-endian, shape (count,) \u2014 index into pose_names"
+  }
+}

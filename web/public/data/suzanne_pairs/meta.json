@@ -1,0 +1,37 @@
+{
+  "scene": "front_hero",
+  "variants": [
+    {
+      "N": 3,
+      "shape": [
+        512,
+        512
+      ]
+    },
+    {
+      "N": 6,
+      "shape": [
+        512,
+        512
+      ]
+    },
+    {
+      "N": 9,
+      "shape": [
+        512,
+        512
+      ]
+    },
+    {
+      "N": 18,
+      "shape": [
+        512,
+        512
+      ]
+    }
+  ],
+  "format": {
+    "depth": "float32 little-endian, shape (H, W)",
+    "normal": "float32 little-endian, shape (H, W, 3)"
+  }
+}

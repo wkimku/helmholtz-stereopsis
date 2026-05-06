@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Pipeline outputs at repo root (large rendered data, not source).
+# web/public/data/ is intentionally NOT ignored — those files are shipped to the static site.
+/data/
+
+# Node / Vite
+web/node_modules/
+web/dist/
+web/.vite/
+web/*.log
+
+# Sandbox runtime outputs (Blender renders + Open3D outputs from local server)
+sandbox/runs/
+sandbox/web/data/latest_run.json
+sandbox/__pycache__/
+sandbox/**/__pycache__/
+
+# Local editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Tooling local state (Claude Code, Cursor, etc.)
+.claude/

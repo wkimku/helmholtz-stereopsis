@@ -1,0 +1,297 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useScene } from '../hooks/useScene'
+import { loadFloat32 } from '../data/loader'
+import { viridis } from '../data/colormap'
+
+type RawData = {
+  depth: Float32Array      // length W*H, raw per-pixel
+  depthFc: Float32Array | null  // length W*H, F-C-integrated smooth depth (optional)
+  normal: Float32Array     // length W*H*3
+  cost: Float32Array       // length W*H
+  bgMask: Uint8Array       // length W*H, 1 = foreground
+  W: number
+  H: number
+}
+
+type DepthSource = 'raw' | 'fc'
+
+/**
+ * §6 interactive: depth and normal maps that respond to a confidence filter
+ * slider plus a depth-source toggle. "Raw" shows the per-pixel depth output
+ * of the search; "Smooth" shows depth recovered from the (cleaner) normal map
+ * via Frankot-Chellappa integration.
+ */
+export function ConfidenceFilterSlider() {
+  const { scene } = useScene()
+  const [data, setData] = useState<RawData | null>(null)
+  const [pct, setPct] = useState(15)
+  const [source, setSource] = useState<DepthSource>('raw')
+  const depthRef = useRef<HTMLCanvasElement>(null)
+  const normalRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    if (!scene) return
+    setData(null)
+    void loadRaw(scene.baseUrl, scene.meta.width, scene.meta.height, !!scene.meta.has_depth_fc)
+      .then(setData)
+  }, [scene])
+
+  const stats = useMemo(() => {
+    if (!data) return null
+    return computeStats(data, pct, source)
+  }, [data, pct, source])
+
+  useEffect(() => {
+    if (!data || !stats || !depthRef.current || !normalRef.current) return
+    drawDepth(depthRef.current, data, stats, source)
+    drawNormal(normalRef.current, data, stats)
+  }, [data, stats, source])
+
+  if (!scene) return <div className="text-sm text-slate-500">Loading scene…</div>
+  if (!data) return <div className="text-sm text-slate-500">Loading raw maps…</div>
+
+  const fcAvailable = data.depthFc !== null
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <CanvasFigure
+          label={source === 'fc' ? 'Depth (smooth, from normals)' : 'Depth (raw, per-pixel)'}
+          canvasRef={depthRef}
+          W={data.W}
+          H={data.H}
+        />
+        <CanvasFigure label="Normal" canvasRef={normalRef} W={data.W} H={data.H} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div>
+          <p className="mb-1.5 text-xs text-slate-500">Depth source</p>
+          <div className="flex gap-1">
+            <SourceButton
+              active={source === 'raw'}
+              onClick={() => setSource('raw')}
+              hint="The depth-search output. Per-pixel and noisy."
+            >
+              raw
+            </SourceButton>
+            <SourceButton
+              active={source === 'fc'}
+              disabled={!fcAvailable}
+              onClick={() => setSource('fc')}
+              hint="Frankot-Chellappa integration of the normal map. Smooth."
+            >
+              smooth
+              <br />
+              <span className="whitespace-nowrap">(Frankot-Chellappa)</span>
+            </SourceButton>
+          </div>
+        </div>
+        <div>
+          <div className="flex items-baseline justify-between gap-3 text-xs text-slate-500">
+            <span className="min-w-0">
+              Drop bottom-N percent of pixels by <span className="whitespace-nowrap">σ₂/σ₁ confidence</span>
+            </span>
+            <span className="whitespace-nowrap font-mono tabular-nums">N = {pct}%</span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={50}
+            step={1}
+            value={pct}
+            onChange={(e) => setPct(Number(e.target.value))}
+            className="mt-1 w-full accent-accent"
+          />
+        </div>
+      </div>
+
+      {stats && (
+        <p className="text-xs text-slate-500">
+          Threshold cost ≥ <span className="font-mono">{stats.threshold.toFixed(3)}</span>;
+          keeping {stats.keptCount.toLocaleString()} / {stats.fgCount.toLocaleString()}{' '}
+          foreground pixels ({((stats.keptCount / Math.max(1, stats.fgCount)) * 100).toFixed(1)}%).
+          {!fcAvailable && (
+            <>
+              {' '}<span className="text-amber-600">
+                (Smooth depth not available for this scene — re-run precompute to generate it.)
+              </span>
+            </>
+          )}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function SourceButton({
+  active,
+  disabled,
+  onClick,
+  hint,
+  children,
+}: {
+  active: boolean
+  disabled?: boolean
+  onClick: () => void
+  hint: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={hint}
+      className={`flex-1 rounded-md px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-40 ${
+        active ? 'bg-accent text-white' : 'bg-slate-100 text-slate-700'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function CanvasFigure({
+  label,
+  canvasRef,
+  W,
+  H,
+}: {
+  label: string
+  canvasRef: React.RefObject<HTMLCanvasElement | null>
+  W: number
+  H: number
+}) {
+  return (
+    <figure>
+      <div className="aspect-square overflow-hidden rounded-lg border border-slate-200 bg-black">
+        <canvas
+          ref={canvasRef}
+          width={W}
+          height={H}
+          className="h-full w-full object-contain"
+        />
+      </div>
+      <figcaption className="figure-caption text-center">{label}</figcaption>
+    </figure>
+  )
+}
+
+type Stats = {
+  threshold: number
+  keptCount: number
+  fgCount: number
+  depthLo: number
+  depthHi: number
+  keepMask: Uint8Array
+}
+
+function computeStats(d: RawData, pct: number, source: DepthSource): Stats {
+  const N = d.W * d.H
+  const fgCosts: number[] = []
+  for (let i = 0; i < N; i++) {
+    if (d.bgMask[i]) fgCosts.push(d.cost[i])
+  }
+  fgCosts.sort((a, b) => a - b)
+  const k = Math.floor((pct / 100) * fgCosts.length)
+  const threshold = fgCosts.length === 0 ? 0 : fgCosts[Math.min(k, fgCosts.length - 1)]
+
+  const depthArr = source === 'fc' && d.depthFc ? d.depthFc : d.depth
+
+  // Compute color range from ALL foreground pixels (independent of the slider)
+  // so dragging the filter only changes which pixels are visible — not the
+  // color mapping itself. F-C boundary outliers get a wider trim.
+  const fgDepths: number[] = []
+  for (let i = 0; i < N; i++) {
+    if (d.bgMask[i]) fgDepths.push(depthArr[i])
+  }
+  fgDepths.sort((a, b) => a - b)
+  const tail = source === 'fc' ? 0.1 : 0.02
+  let depthLo = 0
+  let depthHi = 1
+  if (fgDepths.length > 0) {
+    const loIdx = Math.floor(fgDepths.length * tail)
+    const hiIdx = Math.min(fgDepths.length - 1, Math.floor(fgDepths.length * (1 - tail)))
+    depthLo = fgDepths[loIdx]
+    depthHi = fgDepths[hiIdx] > depthLo + 1e-6 ? fgDepths[hiIdx] : depthLo + 1e-6
+  }
+
+  const keepMask = new Uint8Array(N)
+  let keptCount = 0
+  for (let i = 0; i < N; i++) {
+    if (d.bgMask[i] && d.cost[i] > threshold) {
+      keepMask[i] = 1
+      keptCount++
+    }
+  }
+  return {
+    threshold,
+    keptCount,
+    fgCount: fgCosts.length,
+    depthLo,
+    depthHi,
+    keepMask,
+  }
+}
+
+function drawDepth(canvas: HTMLCanvasElement, d: RawData, stats: Stats, source: DepthSource) {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const img = ctx.createImageData(d.W, d.H)
+  const depthArr = source === 'fc' && d.depthFc ? d.depthFc : d.depth
+  const span = Math.max(1e-6, stats.depthHi - stats.depthLo)
+  for (let i = 0; i < d.W * d.H; i++) {
+    const j = i * 4
+    if (stats.keepMask[i]) {
+      // Clamp to [0, 1] since percentile range may exclude the pixel's value.
+      const t = Math.max(0, Math.min(1, (depthArr[i] - stats.depthLo) / span))
+      const [r, g, b] = viridis(t)
+      img.data[j] = r * 255
+      img.data[j + 1] = g * 255
+      img.data[j + 2] = b * 255
+      img.data[j + 3] = 255
+    } else {
+      img.data[j + 3] = 0
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+function drawNormal(canvas: HTMLCanvasElement, d: RawData, stats: Stats) {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const img = ctx.createImageData(d.W, d.H)
+  for (let i = 0; i < d.W * d.H; i++) {
+    const j = i * 4
+    if (stats.keepMask[i]) {
+      const ni = i * 3
+      img.data[j] = (d.normal[ni] * 0.5 + 0.5) * 255
+      img.data[j + 1] = (d.normal[ni + 1] * 0.5 + 0.5) * 255
+      img.data[j + 2] = (d.normal[ni + 2] * 0.5 + 0.5) * 255
+      img.data[j + 3] = 255
+    } else {
+      img.data[j + 3] = 0
+    }
+  }
+  ctx.putImageData(img, 0, 0)
+}
+
+async function loadRaw(baseUrl: string, W: number, H: number, hasFc: boolean): Promise<RawData> {
+  const [depth, normal, cost] = await Promise.all([
+    loadFloat32(baseUrl + 'depth.bin'),
+    loadFloat32(baseUrl + 'normal.bin'),
+    loadFloat32(baseUrl + 'cost.bin'),
+  ])
+  let depthFc: Float32Array | null = null
+  if (hasFc) {
+    try {
+      depthFc = await loadFloat32(baseUrl + 'depth_fc.bin')
+    } catch {
+      depthFc = null
+    }
+  }
+  const N = W * H
+  const bgMask = new Uint8Array(N)
+  for (let i = 0; i < N; i++) bgMask[i] = depth[i] > 0 ? 1 : 0
+  return { depth, depthFc, normal, cost, bgMask, W, H }
+}

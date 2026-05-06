@@ -1,0 +1,17 @@
+{
+  "count": 242333,
+  "pose_names": [
+    "cube_front",
+    "cube_back",
+    "cube_left",
+    "cube_right",
+    "cube_up",
+    "cube_down"
+  ],
+  "format": {
+    "points": "float32 little-endian, shape (count, 3)",
+    "normals": "float32 little-endian, shape (count, 3)",
+    "colors": "float32 little-endian, shape (count, 3) in [0,1]",
+    "view_indices": "int8 little-endian, shape (count,) \u2014 index into pose_names"
+  }
+}

@@ -1,0 +1,5 @@
+[
+  { "name": "cube",    "label": "Cube" },
+  { "name": "sphere",  "label": "Sphere" },
+  { "name": "suzanne", "label": "Suzanne (Blender's monkey mesh)" }
+]
