@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { dataUrl } from '../data/loader'
 import { useScene } from '../hooks/useScene'
 import { useCurrentScene } from '../data/SceneContext'
+import { Skeleton } from './Skeleton'
 
 const ADVANCE_INTERVAL_MS = 600
 const RESUME_AFTER_INTERACT_MS = 3000
@@ -43,7 +44,12 @@ export function PairCaptureViewer() {
     return <div className="text-sm text-red-500">Failed to load scene: {error}</div>
   }
   if (!scene) {
-    return <div className="text-sm text-slate-500">Loading scene…</div>
+    return (
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Skeleton aspect="square" label="Loading scene…" />
+        <Skeleton aspect="square" label="Loading 3D rig…" />
+      </div>
+    )
   }
 
   const N = scene.meta.num_pairs

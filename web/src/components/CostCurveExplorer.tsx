@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useScene } from '../hooks/useScene'
 import { loadCostVolume, costCurveAtPixel } from '../data/loader'
 import type { CostVolumeData } from '../data/loader'
+import { Skeleton } from './Skeleton'
 
 type Pixel = { u: number; v: number; uNorm: number; vNorm: number }
 
@@ -22,21 +23,26 @@ export function CostCurveExplorer() {
   }, [scene])
 
   if (error) return <div className="text-sm text-red-500">{error}</div>
-  if (!scene) return <div className="text-sm text-slate-500">Loading scene…</div>
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <ClickableImage
-        src={`${scene.baseUrl}base_rgb.png`}
-        onPick={setPixel}
-        marker={pixel}
-      />
+      {scene ? (
+        <ClickableImage
+          src={`${scene.baseUrl}base_rgb.png`}
+          onPick={setPixel}
+          marker={pixel}
+        />
+      ) : (
+        <Skeleton aspect="square" label="Loading scene…" />
+      )}
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <p className="text-sm font-medium text-ink">Cost vs depth</p>
         <p className="mt-1 text-xs text-slate-500">
           Plot of σ₂/σ₁ for the clicked pixel. The peak indicates the most likely depth.
         </p>
-        {loadingCv && <div className="mt-6 text-sm text-slate-500">Loading cost volume…</div>}
+        {loadingCv && (
+          <Skeleton className="mt-4 h-44" label="Loading cost volume…" />
+        )}
         {cv && pixel && <CostPlot cv={cv} pixel={pixel} />}
         {cv && !pixel && (
           <div className="mt-6 text-sm text-slate-500">Click anywhere on the image →</div>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useScene } from '../hooks/useScene'
 import { loadCostVolume, costCurveAtPixel } from '../data/loader'
 import type { CostVolumeData } from '../data/loader'
+import { Skeleton } from './Skeleton'
 
 type Pixel = { uNorm: number; vNorm: number; label: string; color: string }
 
@@ -37,7 +38,14 @@ export function DepthAmbiguityExplorer() {
     void loadCostVolume(scene).then(setCv)
   }, [scene])
 
-  if (!scene) return <div className="text-sm text-slate-500">Loading scene…</div>
+  if (!scene) {
+    return (
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Skeleton aspect="square" label="Loading scene…" />
+        <Skeleton className="h-72" label="Loading cost volume…" />
+      </div>
+    )
+  }
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
     const rect = ref.current!.getBoundingClientRect()
@@ -114,7 +122,7 @@ export function DepthAmbiguityExplorer() {
           peaks of comparable height = the algorithm's "necessary but not
           sufficient" warning showing up as actual ambiguity in the data.
         </p>
-        {!cv && <p className="mt-6 text-sm text-slate-500">Loading cost volume…</p>}
+        {!cv && <Skeleton className="mt-4 h-44" label="Loading cost volume…" />}
         {cv && <MultiCurvePlot cv={cv} points={points} />}
         <ul className="mt-4 space-y-1 text-xs text-slate-600">
           {points.map((p, i) => (

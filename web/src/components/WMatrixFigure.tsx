@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useScene } from '../hooks/useScene'
 import { loadSigmaVolume, sigmaCurvesAtPixel } from '../data/loader'
 import type { SigmaVolumeData } from '../data/loader'
+import { Skeleton } from './Skeleton'
 
 type Pixel = { u: number; v: number; uNorm: number; vNorm: number }
 
@@ -33,11 +34,14 @@ export function WMatrixFigure() {
   }, [scene])
 
   if (error) return <div className="text-sm text-red-500">{error}</div>
-  if (!scene) return <div className="text-sm text-slate-500">Loading scene…</div>
 
   return (
     <figure className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <ClickableImage src={`${scene.baseUrl}base_rgb.png`} onPick={setPixel} marker={pixel} />
+      {scene ? (
+        <ClickableImage src={`${scene.baseUrl}base_rgb.png`} onPick={setPixel} marker={pixel} />
+      ) : (
+        <Skeleton aspect="square" label="Loading scene…" />
+      )}
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <p className="text-sm font-medium text-ink">Singular values vs candidate depth</p>
         <p className="mt-1 text-xs text-slate-500">
@@ -45,8 +49,10 @@ export function WMatrixFigure() {
           along the camera ray. The vertical line marks the depth where σ₂/σ₁
           peaks.
         </p>
-        {loading && <div className="mt-6 text-sm text-slate-500">Loading sigma volume…</div>}
-        {!loading && !sv && (
+        {loading && (
+          <Skeleton className="mt-4 h-44" label="Loading sigma volume…" />
+        )}
+        {!loading && !sv && scene && (
           <div className="mt-6 text-sm text-slate-500">
             No sigma volume shipped with this scene yet — re-run the pipeline export.
           </div>

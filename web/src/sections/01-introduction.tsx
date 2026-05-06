@@ -1,4 +1,5 @@
 import { Section } from '../components/Section'
+import { useScene } from '../hooks/useScene'
 import { sectionById } from './manifest'
 
 const meta = sectionById('intro')
@@ -11,19 +12,23 @@ export function Section01Introduction() {
       title={meta.title}
       lede={
         <>
-          You have a stack of photographs of an object and you want a 3D model.
-          The standard tricks have a catch: classical stereo needs <em>texture</em>{' '}
-          to find correspondences, and photometric stereo needs the surface to
-          be <em>Lambertian</em>. Helmholtz Stereopsis drops both assumptions by
-          exploiting a property the BRDF gives you for free: reciprocity.
+          Try to 3D-scan a glass marble, a polished steel ball, or a glossy
+          ceramic teapot with the usual computer-vision tricks and you will
+          fail. Classical stereo needs surface texture; photometric stereo
+          assumes the object reflects light like chalk. Helmholtz Stereopsis
+          drops both assumptions and works on any opaque surface — matte,
+          glossy, even mirror-like — by exploiting one symmetry every physical
+          BRDF satisfies for free.
         </>
       }
     >
+      <HeroPreview />
+
       <p>
         This page walks through the algorithm one step at a time, on real
-        renders. Most steps are interactive — you can change the number of
-        reciprocal pairs, click a pixel and watch its depth-cost curve, rotate
-        the recovered point cloud, and see the limitations of the method appear
+        renders. Every step is interactive: pick the number of reciprocal pairs
+        to capture, click a pixel and watch its depth-cost curve, rotate the
+        recovered point cloud, and see the limitations of the method appear
         exactly where the original paper says they will. Three scenes are
         provided (Suzanne, a cube, and a sphere); switch between them with the
         picker in the header to compare the algorithm's behavior across
@@ -32,14 +37,14 @@ export function Section01Introduction() {
 
       <div className="my-10 grid grid-cols-1 gap-4 md:grid-cols-3">
         <ComparisonCard
-          title="Conventional stereo"
+          title="Classical stereo"
           requires="Surface texture"
           fails="Smooth or repeating surfaces"
         />
         <ComparisonCard
           title="Photometric stereo"
           requires="Lambertian reflectance"
-          fails="Glossy, metallic, or translucent objects"
+          fails="Glossy, metallic, or anisotropic objects"
         />
         <ComparisonCard
           title="Helmholtz stereopsis"
@@ -52,13 +57,59 @@ export function Section01Introduction() {
       <p>
         The math runs in Python; the visualizations run in your browser. Source
         code, the Blender data pipeline, and references to the original papers
-        are linked at the end.
+        are linked at the end. There is also a try-it-yourself sandbox in §10
+        if you want to render your own object and watch the full pipeline run
+        end-to-end.
       </p>
 
       <p className="section-bridge">
-        Next: the principle that makes the rest possible — Helmholtz reciprocity.
+        Next: the symmetry that makes everything else possible — Helmholtz
+        reciprocity.
       </p>
     </Section>
+  )
+}
+
+/**
+ * Three-up preview at the top of §1: input photo → recovered depth → recovered
+ * normal. Pulled live from the active scene's exported assets so it switches
+ * with the global scene picker.
+ */
+function HeroPreview() {
+  const { scene } = useScene()
+  if (!scene) {
+    return (
+      <div className="my-8 grid h-40 grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="rounded-lg bg-slate-100" />
+        <div className="rounded-lg bg-slate-100" />
+        <div className="rounded-lg bg-slate-100" />
+      </div>
+    )
+  }
+  return (
+    <figure className="my-8">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <PreviewTile src={`${scene.baseUrl}base_rgb.png`} caption="Input photo" />
+        <PreviewTile src={`${scene.baseUrl}depth_vis.png`} caption="Recovered depth" />
+        <PreviewTile src={`${scene.baseUrl}normal_vis.png`} caption="Recovered normals" />
+      </div>
+      <figcaption className="mt-2 text-center text-xs text-slate-500">
+        From a stack of reciprocal-pair photographs (left) the algorithm
+        recovers per-pixel depth and surface normals (center, right). No mesh,
+        no BRDF model, no texture required.
+      </figcaption>
+    </figure>
+  )
+}
+
+function PreviewTile({ src, caption }: { src: string; caption: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+      <div className="aspect-square overflow-hidden rounded-md bg-black">
+        <img src={src} alt={caption} className="h-full w-full object-contain" />
+      </div>
+      <p className="mt-2 text-center text-xs font-medium text-slate-600">{caption}</p>
+    </div>
   )
 }
 

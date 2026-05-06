@@ -14,10 +14,9 @@ export function Section07PairsEffect() {
         would have to satisfy all of them simultaneously, which is much rarer.
       </p>
       <p>
-        Toggle between 3, 6, 9, and 18 pairs and watch the noise drop. The
-        difference between 3 and 6 is dramatic; between 9 and 18 it's
-        diminishing. In practice 9 pairs is a reasonable trade-off between
-        capture time and result quality.
+        Below: the same scene reconstructed with <em>N</em> = 3, 6, 9, and 18
+        reciprocal pairs. The N = 18 column (highlighted) is the cleanest; the
+        N = 3 column is so noisy the surface is barely recognizable.
       </p>
 
       <PairsComparison />

@@ -4,6 +4,7 @@ import { OrbitControls } from '@react-three/drei'
 import { dataUrl, loadFloat32 } from '../data/loader'
 import { useCurrentScene } from '../data/SceneContext'
 import { viridis } from '../data/colormap'
+import { Skeleton } from './Skeleton'
 
 type CloudSet = {
   positions: Float32Array   // (N*3)
@@ -64,7 +65,7 @@ export function FusionViewer() {
       </div>
     )
   }
-  if (!data) return <div className="text-sm text-slate-500">Loading multi-view…</div>
+  if (!data) return <Skeleton className="h-96" label="Loading multi-view point cloud…" />
 
   const activeSet = source === 'raw' && data.raw ? data.raw : data.smooth
   const visibleCount = countVisible(activeSet.viewIndices, enabled)

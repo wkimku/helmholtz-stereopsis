@@ -6,11 +6,11 @@ type PairsMeta = {
   variants: { N: number; shape: [number, number] }[]
 }
 
-/** §7 main interactive: 4-up grid + slider showing how the result improves with more pairs. */
+/** §7 main interactive: side-by-side grid of N=3/6/9/18 depth+normal so the
+ *  noise drop is visible at a glance. */
 export function PairsComparison() {
   const { current } = useCurrentScene()
   const [meta, setMeta] = useState<PairsMeta | null>(null)
-  const [active, setActive] = useState(0)
   const [missing, setMissing] = useState(false)
   const baseUrl = dataUrl(`data/${current}_pairs/`)
 
@@ -41,54 +41,68 @@ export function PairsComparison() {
   if (!meta) return <div className="text-sm text-slate-500">Loading…</div>
 
   const variants = meta.variants
-  const variant = variants[active] ?? variants[0]
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Tile
-          src={`${baseUrl}N${variant.N}/depth_vis.png`}
-          label={`Depth — N = ${variant.N}`}
-        />
-        <Tile
-          src={`${baseUrl}N${variant.N}/normal_vis.png`}
-          label={`Normal — N = ${variant.N}`}
-        />
+      {/* Depth row — all N variants visible at once. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {variants.map((v) => (
+          <Tile
+            key={`d-${v.N}`}
+            src={`${baseUrl}N${v.N}/depth_vis.png`}
+            label={`N = ${v.N}`}
+            sub="depth"
+            highlight={v.N === variants[variants.length - 1].N}
+          />
+        ))}
       </div>
-      <div>
-        <div className="flex items-center justify-between text-sm text-slate-600">
-          <span>Reciprocal pairs used</span>
-          <span className="font-mono tabular-nums">N = {variant.N}</span>
-        </div>
-        <div className="mt-2 flex gap-2">
-          {variants.map((v, i) => (
-            <button
-              key={v.N}
-              onClick={() => setActive(i)}
-              className={`flex-1 rounded-md py-1.5 text-xs font-medium ${
-                i === active ? 'bg-accent text-white' : 'bg-slate-100 text-slate-700'
-              }`}
-            >
-              N = {v.N}
-            </button>
-          ))}
-        </div>
+      {/* Normal row */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {variants.map((v) => (
+          <Tile
+            key={`n-${v.N}`}
+            src={`${baseUrl}N${v.N}/normal_vis.png`}
+            label={`N = ${v.N}`}
+            sub="normal"
+            highlight={v.N === variants[variants.length - 1].N}
+          />
+        ))}
       </div>
       <p className="text-xs text-slate-500">
-        Note how noise drops as N increases. Each additional pair contributes one row to the
-        constraint matrix W, making it harder for a wrong depth to satisfy them all simultaneously.
+        Each additional pair contributes one row to the constraint matrix{' '}
+        <code>W</code>, making it harder for a wrong depth to satisfy them all
+        simultaneously. The jump from N = 3 to N = 6 is dramatic; from N = 9 to
+        N = 18 the gain is modest. In practice 9 pairs is a reasonable
+        trade-off between capture time and result quality.
       </p>
     </div>
   )
 }
 
-function Tile({ src, label }: { src: string; label: string }) {
+function Tile({
+  src,
+  label,
+  sub,
+  highlight,
+}: {
+  src: string
+  label: string
+  sub: string
+  highlight?: boolean
+}) {
   return (
     <figure>
-      <div className="aspect-square overflow-hidden rounded-lg border border-slate-200 bg-black/90 p-1">
-        <img src={src} alt={label} className="h-full w-full rounded object-contain" />
+      <div
+        className={`aspect-square overflow-hidden rounded-lg border bg-black/90 p-1 ${
+          highlight ? 'border-accent/60 ring-2 ring-accent/30' : 'border-slate-200'
+        }`}
+      >
+        <img src={src} alt={`${label} ${sub}`} className="h-full w-full rounded object-contain" />
       </div>
-      <figcaption className="figure-caption text-center">{label}</figcaption>
+      <figcaption className="mt-1 text-center text-xs text-slate-600">
+        <span className="font-medium">{label}</span>{' '}
+        <span className="text-slate-400">· {sub}</span>
+      </figcaption>
     </figure>
   )
 }
