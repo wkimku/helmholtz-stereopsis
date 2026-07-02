@@ -18,10 +18,16 @@ export function CostCurveExplorer() {
   const { scene, error } = useScene()
   const [cv, setCv] = useState<CostVolumeData | null>(null)
   const [sv, setSv] = useState<SigmaVolumeData | null>(null)
+  // The scene the loaded sigma volume belongs to (its baseUrl). Keying sv to the
+  // scene lets the lazy effect tell "already have it" from "have the wrong
+  // scene's" without reading a stale sv closure on a scene switch.
+  const [svKey, setSvKey] = useState<string | null>(null)
   const [pixel, setPixel] = useState<Pixel | null>(null)
   const [loadingCv, setLoadingCv] = useState(false)
   const [loadingSv, setLoadingSv] = useState(false)
   const [mode, setMode] = useState<PlotMode>('ratio')
+
+  const svReady = sv !== null && svKey === scene?.baseUrl
 
   useEffect(() => {
     if (!scene) return
@@ -29,6 +35,7 @@ export function CostCurveExplorer() {
     setLoadingCv(true)
     setCv(null)
     setSv(null)
+    setSvKey(null)
     setPixel(null) // stale marker belongs to the previous scene's image
     loadCostVolume(scene)
       .then((data) => {
@@ -49,20 +56,25 @@ export function CostCurveExplorer() {
   // Lazily fetch the (larger) sigma volume only when the breakdown view is first
   // requested for the current scene. Deps are [mode, scene] only — including sv
   // or loadingSv would let a state update cancel the in-flight fetch and strand
-  // the loading flag. The `if (sv) return` guard reads the current render's sv.
+  // the loading flag. We compare svKey to scene.baseUrl instead of reading sv,
+  // so on a scene switch the guard sees the *previous* scene's key and correctly
+  // re-fetches (a stale sv from the old scene never blocks the new load).
   useEffect(() => {
-    if (mode !== 'sigmas' || !scene || sv) return
+    if (mode !== 'sigmas' || !scene || svKey === scene.baseUrl) return
     let cancelled = false
+    const targetKey = scene.baseUrl
     setLoadingSv(true)
     loadSigmaVolume(scene)
       .then((data) => {
         if (cancelled) return
         setSv(data)
+        setSvKey(targetKey)
         setLoadingSv(false)
       })
       .catch(() => {
         if (cancelled) return
         setSv(null)
+        setSvKey(null)
         setLoadingSv(false)
       })
     return () => {
@@ -117,7 +129,7 @@ export function CostCurveExplorer() {
           <Skeleton className="mt-4 h-44" label="Loading sigma volume…" />
         )}
         {cv && pixel && mode === 'ratio' && <CostPlot cv={cv} pixel={pixel} />}
-        {cv && sv && pixel && mode === 'sigmas' && !loadingSv && (
+        {cv && svReady && sv && pixel && mode === 'sigmas' && !loadingSv && (
           <SigmaBreakdown cv={cv} sv={sv} pixel={pixel} />
         )}
         {cv && !pixel && !loadingCv && (
