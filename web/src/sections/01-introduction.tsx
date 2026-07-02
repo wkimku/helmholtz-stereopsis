@@ -1,4 +1,5 @@
 import { Section } from '../components/Section'
+import { PhotometricStereoTeaser } from '../components/PhotometricStereoTeaser'
 import { sectionById } from './manifest'
 
 const meta = sectionById('intro')
@@ -41,6 +42,8 @@ export function Section01Introduction() {
         the one it <em>doesn't</em> make — it never models the reflectance.
       </p>
       <MethodComparison />
+
+      <PhotometricStereoTeaser />
 
       <p>
         The catch is in the last column: HS needs the pixel intensity to

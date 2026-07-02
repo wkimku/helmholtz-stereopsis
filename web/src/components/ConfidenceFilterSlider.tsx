@@ -28,6 +28,8 @@ export function ConfidenceFilterSlider() {
   const [loadError, setLoadError] = useState(false)
   const [pct, setPct] = useState(15)
   const [source, setSource] = useState<DepthSource>('raw')
+  const [normalMode, setNormalMode] = useState<'rgb' | 'relit'>('rgb')
+  const [lightAngle, setLightAngle] = useState(135) // degrees, azimuth of the relight
   const depthRef = useRef<HTMLCanvasElement>(null)
   const normalRef = useRef<HTMLCanvasElement>(null)
 
@@ -56,8 +58,8 @@ export function ConfidenceFilterSlider() {
   useEffect(() => {
     if (!data || !stats || !depthRef.current || !normalRef.current) return
     drawDepth(depthRef.current, data, stats, source)
-    drawNormal(normalRef.current, data, stats)
-  }, [data, stats, source])
+    drawNormal(normalRef.current, data, stats, normalMode, lightAngle)
+  }, [data, stats, source, normalMode, lightAngle])
 
   if (!scene) return <Skeleton className="h-64" label="Loading scene…" />
   if (loadError)
@@ -75,7 +77,42 @@ export function ConfidenceFilterSlider() {
           W={data.W}
           H={data.H}
         />
-        <CanvasFigure label="Normal" canvasRef={normalRef} W={data.W} H={data.H} />
+        <CanvasFigure
+          label={normalMode === 'rgb' ? 'Normal (n̂ → RGB)' : 'Normal, re-lit'}
+          canvasRef={normalRef}
+          W={data.W}
+          H={data.H}
+        >
+          <div className="mt-1.5 flex items-center gap-2">
+            <div className="flex overflow-hidden rounded-md border border-slate-200 text-[11px]">
+              <button
+                onClick={() => setNormalMode('rgb')}
+                className={`px-2 py-0.5 ${normalMode === 'rgb' ? 'bg-accent text-white' : 'bg-white text-slate-600'}`}
+              >
+                n̂ → RGB
+              </button>
+              <button
+                onClick={() => setNormalMode('relit')}
+                className={`px-2 py-0.5 ${normalMode === 'relit' ? 'bg-accent text-white' : 'bg-white text-slate-600'}`}
+              >
+                re-lit
+              </button>
+            </div>
+            {normalMode === 'relit' && (
+              <label className="flex flex-1 items-center gap-2 text-[11px] text-slate-500">
+                light
+                <input
+                  type="range"
+                  min={0}
+                  max={360}
+                  value={lightAngle}
+                  onChange={(e) => setLightAngle(Number(e.target.value))}
+                  className="w-full accent-accent"
+                />
+              </label>
+            )}
+          </div>
+        </CanvasFigure>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -173,11 +210,13 @@ function CanvasFigure({
   canvasRef,
   W,
   H,
+  children,
 }: {
   label: string
   canvasRef: React.RefObject<HTMLCanvasElement | null>
   W: number
   H: number
+  children?: React.ReactNode
 }) {
   return (
     <figure>
@@ -190,6 +229,7 @@ function CanvasFigure({
         />
       </div>
       <figcaption className="figure-caption text-center">{label}</figcaption>
+      {children}
     </figure>
   )
 }
@@ -278,21 +318,50 @@ function drawDepth(canvas: HTMLCanvasElement, d: RawData, stats: Stats, source: 
   ctx.putImageData(img, 0, 0)
 }
 
-function drawNormal(canvas: HTMLCanvasElement, d: RawData, stats: Stats) {
+function drawNormal(
+  canvas: HTMLCanvasElement,
+  d: RawData,
+  stats: Stats,
+  mode: 'rgb' | 'relit' = 'rgb',
+  lightAngleDeg = 135,
+) {
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   const img = ctx.createImageData(d.W, d.H)
+
+  // Relight direction: azimuth in the image plane, tilted toward the viewer so
+  // the whole (z-facing) surface stays lit rather than half-black.
+  const az = (lightAngleDeg * Math.PI) / 180
+  const lz = 0.55
+  const lx = Math.cos(az)
+  const ly = Math.sin(az)
+  const ln = Math.hypot(lx, ly, lz)
+  const L = [lx / ln, ly / ln, lz / ln]
+
   for (let i = 0; i < d.W * d.H; i++) {
     const j = i * 4
-    if (stats.keepMask[i]) {
-      const ni = i * 3
-      img.data[j] = (d.normal[ni] * 0.5 + 0.5) * 255
-      img.data[j + 1] = (d.normal[ni + 1] * 0.5 + 0.5) * 255
-      img.data[j + 2] = (d.normal[ni + 2] * 0.5 + 0.5) * 255
-      img.data[j + 3] = 255
-    } else {
+    if (!stats.keepMask[i]) {
       img.data[j + 3] = 0
+      continue
     }
+    const ni = i * 3
+    const nx = d.normal[ni]
+    const ny = d.normal[ni + 1]
+    const nz = d.normal[ni + 2]
+    if (mode === 'relit') {
+      // Lambertian shade n̂·L, with a little ambient so shadows aren't pure black.
+      const diff = Math.max(0, nx * L[0] + ny * L[1] + nz * L[2])
+      const shade = Math.min(1, 0.12 + 0.88 * diff)
+      const v = shade * 255
+      img.data[j] = v
+      img.data[j + 1] = v
+      img.data[j + 2] = v
+    } else {
+      img.data[j] = (nx * 0.5 + 0.5) * 255
+      img.data[j + 1] = (ny * 0.5 + 0.5) * 255
+      img.data[j + 2] = (nz * 0.5 + 0.5) * 255
+    }
+    img.data[j + 3] = 255
   }
   ctx.putImageData(img, 0, 0)
 }

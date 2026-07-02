@@ -1,5 +1,7 @@
 import { Section } from '../components/Section'
 import { DepthAmbiguityExplorer } from '../components/DepthAmbiguityExplorer'
+import { CrossSceneCompare } from '../components/CrossSceneCompare'
+import { Disclosure } from '../components/Disclosure'
 import { sectionById } from './manifest'
 
 const meta = sectionById('limitations')
@@ -23,6 +25,16 @@ export function Section09Limitations() {
       </p>
 
       <DepthAmbiguityExplorer />
+
+      <Disclosure summary="Compare the same pixel across all scenes">
+        <p className="mb-3 text-slate-600">
+          The amount of ambiguity at a given image location depends on the
+          geometry underneath it. Load all three scenes and move the shared
+          pixel to the center: the on-axis point is a clean peak on some
+          geometries and multi-modal on others.
+        </p>
+        <CrossSceneCompare />
+      </Disclosure>
 
       <p className="mt-8">Two more limitations show up across all three scenes:</p>
       <ul className="my-4 list-disc space-y-2 pl-5 text-slate-800">
