@@ -44,7 +44,7 @@ export function TableOfContents() {
 
   return (
     <nav className="text-sm">
-      <p className="mb-3 font-mono text-xs uppercase tracking-widest text-slate-400">Sections</p>
+      <p className="mb-3 font-mono text-xs uppercase tracking-widest text-slate-500">Sections</p>
       <ol className="space-y-1.5">
         {SECTIONS.map((s) => {
           const active = s.id === activeId
@@ -60,7 +60,7 @@ export function TableOfContents() {
               >
                 <span
                   className={`font-mono text-[11px] tabular-nums ${
-                    active ? 'text-accent' : 'text-slate-400'
+                    active ? 'text-accent' : 'text-slate-500'
                   }`}
                 >
                   {s.number}

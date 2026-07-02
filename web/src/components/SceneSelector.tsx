@@ -20,7 +20,7 @@ export function SceneSelector({ compact = false }: { compact?: boolean }) {
 
   return (
     <div>
-      <p className="mb-1 font-mono text-xs uppercase tracking-widest text-slate-400">
+      <p className="mb-1 font-mono text-xs uppercase tracking-widest text-slate-500">
         Scene
       </p>
       <p className="mb-3 text-xs text-slate-500">

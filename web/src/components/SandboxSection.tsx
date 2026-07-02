@@ -9,6 +9,7 @@ import {
 } from '../data/sandbox'
 import type { JobState, RunSettings, WebPayload } from '../data/sandbox'
 import { viridis } from '../data/colormap'
+import { OrbitHint } from './OrbitHint'
 
 const DEFAULTS: RunSettings = {
   resolution: 192,
@@ -446,8 +447,9 @@ function SandboxPointCloud({ result }: { result: WebPayload }) {
 
   return (
     <div>
-      <div className="aspect-video w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-900">
-        <Canvas camera={{ position: [0, 0, -3], fov: 35 }}>
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-900">
+        <OrbitHint />
+        <Canvas camera={{ position: [0, 0, -3], fov: 35 }} className="cursor-grab active:cursor-grabbing">
           <ambientLight intensity={0.85} />
           <points>
             <bufferGeometry>

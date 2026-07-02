@@ -40,9 +40,15 @@ export function PairsComparison() {
   if (missing) {
     return (
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-        Pairs-comparison dataset for <code>{current}</code> not found at{' '}
-        <code>data/{current}_pairs/</code>. Run{' '}
-        <code className="font-mono">python -m pipeline.pairs_comparison</code> to produce it.
+        The pairs comparison for <code>{current}</code> is temporarily
+        unavailable.
+        {import.meta.env.DEV && (
+          <>
+            {' '}
+            Dataset not found at <code>data/{current}_pairs/</code> — run{' '}
+            <code className="font-mono">python -m pipeline.pairs_comparison</code> to produce it.
+          </>
+        )}
       </div>
     )
   }

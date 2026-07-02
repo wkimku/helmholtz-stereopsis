@@ -57,10 +57,28 @@ export function Section10Sandbox() {
       <div className="my-12 grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-6">
           <p className="font-medium text-ink">Read the original</p>
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
-            <li>Zickler, Belhumeur, and Kriegman. <em>Helmholtz Stereopsis: Exploiting Reciprocity for Surface Reconstruction.</em> ECCV 2002.</li>
-            <li>Zickler. <em>Reciprocal image features for uncalibrated Helmholtz stereopsis.</em> CVPR 2006.</li>
-            <li>Frankot and Chellappa. <em>A method for enforcing integrability in shape from shading algorithms.</em> IEEE TPAMI 1988. (used by §6 to integrate normals into a smooth depth)</li>
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-700">
+            <li>
+              Zickler, Belhumeur, and Kriegman.{' '}
+              <a href="https://doi.org/10.1007/3-540-47977-5_57" className="text-accent hover:underline" target="_blank" rel="noreferrer">
+                <em>Helmholtz Stereopsis: Exploiting Reciprocity for Surface Reconstruction.</em>
+              </a>{' '}
+              ECCV 2002.
+            </li>
+            <li>
+              Zickler.{' '}
+              <a href="https://doi.org/10.1007/11744047_60" className="text-accent hover:underline" target="_blank" rel="noreferrer">
+                <em>Reciprocal Image Features for Uncalibrated Helmholtz Stereopsis.</em>
+              </a>{' '}
+              CVPR 2006.
+            </li>
+            <li>
+              Frankot and Chellappa.{' '}
+              <a href="https://doi.org/10.1109/34.3909" className="text-accent hover:underline" target="_blank" rel="noreferrer">
+                <em>A Method for Enforcing Integrability in Shape from Shading Algorithms.</em>
+              </a>{' '}
+              IEEE TPAMI 1988. (used by §6 to integrate normals into a smooth depth)
+            </li>
           </ul>
         </div>
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-6">

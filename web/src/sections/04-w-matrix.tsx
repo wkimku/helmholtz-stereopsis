@@ -48,6 +48,18 @@ export function Section04WMatrix() {
         </>
       }
     >
+      <p>
+        Before the algebra, the shape of the answer. We don't know the surface's
+        reflectance, and we don't want to. So instead of trying to{' '}
+        <em>predict</em> a pixel's brightness, we write down a relationship
+        between the two brightnesses of a reciprocal pair that stays true{' '}
+        <em>whatever</em> the reflectance is — the BRDF appears on both sides and
+        cancels. What survives is purely geometric: a single equation that the
+        surface normal <Inline>{`\\hat n`}</Inline> must satisfy at the true
+        depth. It is linear in <Inline>{`\\hat n`}</Inline>, so each reciprocal
+        pair pins the normal down a little more.
+      </p>
+
       <Block>{`\\bigl[\\,I_l\\,\\frac{\\nu_l}{\\|\\nu_l\\|^3}\\;-\\;I_r\\,\\frac{\\nu_r}{\\|\\nu_r\\|^3}\\,\\bigr]\\cdot\\hat n \\;=\\; 0`}</Block>
       <p>
         Here <Inline>{`\\nu_l = O_l - P`}</Inline> and{' '}

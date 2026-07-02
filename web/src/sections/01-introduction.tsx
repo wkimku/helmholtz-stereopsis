@@ -1,5 +1,6 @@
 import { Section } from '../components/Section'
 import { PhotometricStereoTeaser } from '../components/PhotometricStereoTeaser'
+import { Disclosure } from '../components/Disclosure'
 import { sectionById } from './manifest'
 
 const meta = sectionById('intro')
@@ -60,6 +61,43 @@ export function Section01Introduction() {
         if you want to render your own object and watch the full pipeline run
         end-to-end.
       </p>
+
+      <Disclosure summary="Scope & assumptions">
+        <p className="mb-2">
+          Like any reconstruction method, Helmholtz Stereopsis buys its
+          generality with a specific setup. This demo assumes:
+        </p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>
+            <strong>Reciprocal reflectance.</strong> The BRDF is symmetric under
+            swapping the light and view directions — true for essentially every
+            opaque material, but not for fluorescent or subsurface-scattering
+            (translucent) surfaces (§9).
+          </li>
+          <li>
+            <strong>Calibrated geometry.</strong> The camera and light positions
+            are known. (Zickler's 2006 follow-up relaxes this to an{' '}
+            <em>uncalibrated</em> setting.)
+          </li>
+          <li>
+            <strong>Single-bounce, single point light.</strong> Direct surface
+            reflection only — no interreflections, no area lights.
+          </li>
+          <li>
+            <strong>Static, opaque scene.</strong> The object doesn't move
+            between the two captures of a pair.
+          </li>
+          <li>
+            <strong>Enough intensity variation.</strong> The method needs the
+            two brightnesses of a pair to differ — from curvature or albedo. Flat
+            uniform regions viewed symmetrically stay ambiguous (§9).
+          </li>
+        </ul>
+        <p className="mt-2 text-slate-500">
+          The scenes here are synthetic (Blender renders) so the geometry and
+          lighting are known exactly; a real capture rig would calibrate them.
+        </p>
+      </Disclosure>
 
       <p className="section-bridge">
         Next: the symmetry that makes everything else possible — Helmholtz

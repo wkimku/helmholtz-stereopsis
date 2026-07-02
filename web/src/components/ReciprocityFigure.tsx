@@ -15,7 +15,11 @@ import { useEffect, useState } from 'react'
  */
 export function ReciprocityFigure() {
   const [swapped, setSwapped] = useState(false)
-  const [playing, setPlaying] = useState(true)
+  // Don't auto-animate for users who prefer reduced motion — they can still
+  // press "Auto-play" or step through with "Swap".
+  const [playing, setPlaying] = useState(
+    () => !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+  )
 
   useEffect(() => {
     if (!playing) return

@@ -15,6 +15,27 @@ body {
   font-feature-settings: 'cv11', 'ss03', 'kern';
 }
 
+/* Keyboard focus ring. Tailwind Preflight removes default outlines, so without
+   this the custom-styled buttons/links/sliders show no focus at all. */
+:focus-visible {
+  outline: 2px solid theme('colors.accent');
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Respect users who ask for less motion: kill the auto-swap / auto-advance /
+   scroll-progress animations and long transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .prose-section {
   @apply mx-auto max-w-prose2 px-6 py-16 md:py-24;
 }

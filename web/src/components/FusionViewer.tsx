@@ -5,6 +5,7 @@ import { dataUrl, loadFloat32 } from '../data/loader'
 import { useCurrentScene } from '../data/SceneContext'
 import { viridis } from '../data/colormap'
 import { Skeleton } from './Skeleton'
+import { OrbitHint } from './OrbitHint'
 
 type CloudSet = {
   positions: Float32Array   // (N*3)
@@ -66,9 +67,15 @@ export function FusionViewer() {
   if (missing) {
     return (
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-        Merged dataset for <code>{current}</code> not found at{' '}
-        <code>data/{current}_full/</code>. Render the six poses and run{' '}
-        <code className="font-mono">pipeline.merge_views</code>.
+        The fused 3D reconstruction for <code>{current}</code> is temporarily
+        unavailable.
+        {import.meta.env.DEV && (
+          <>
+            {' '}
+            Merged dataset not found at <code>data/{current}_full/</code> — render
+            the six poses and run <code className="font-mono">pipeline.merge_views</code>.
+          </>
+        )}
       </div>
     )
   }
@@ -80,8 +87,9 @@ export function FusionViewer() {
 
   return (
     <div className="space-y-3">
-      <div className="aspect-video w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-900">
-        <Canvas camera={{ position: [0, 0, -3], fov: 35 }}>
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-900">
+        <OrbitHint />
+        <Canvas camera={{ position: [0, 0, -3], fov: 35 }} className="cursor-grab active:cursor-grabbing">
           <ambientLight intensity={0.85} />
           <Points
             cloud={activeSet}

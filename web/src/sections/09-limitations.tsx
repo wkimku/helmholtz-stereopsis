@@ -70,6 +70,22 @@ export function Section09Limitations() {
         swapping the two directions.
       </p>
 
+      <div className="my-10 rounded-xl border border-slate-200 bg-slate-50 p-6">
+        <p className="font-medium text-ink">The whole algorithm, in six lines</p>
+        <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-slate-700">
+          <li>Capture reciprocal pairs — two photos per pair with the camera and light swapped (§3).</li>
+          <li>For a candidate surface point, read the two pixel intensities and build one row of the constraint matrix <code>W</code> (§4).</li>
+          <li>Stack the rows from all pairs; the true depth is where <code>W</code> is closest to rank-2 (σ₁ → 0) (§4).</li>
+          <li>Score each depth by σ₂/σ₁ and take the peak; the surface normal is <code>W</code>'s null vector (§5).</li>
+          <li>Do that at every pixel for a depth + normal map; integrate the (cleaner) normals for smooth depth (§6).</li>
+          <li>Fuse several viewpoints into one point cloud (§8). More pairs → less noise (§7); symmetry &amp; occlusion set the limits (§9).</li>
+        </ol>
+        <p className="mt-3 text-sm text-slate-600">
+          The one idea underneath all of it: reciprocity lets the BRDF cancel, so
+          shape falls out without ever modeling reflectance.
+        </p>
+      </div>
+
       <p className="section-bridge">
         Next: try the full pipeline yourself — pick parameters, render in
         Blender, and watch the algorithm reconstruct your input live.

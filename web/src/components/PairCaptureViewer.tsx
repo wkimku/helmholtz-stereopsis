@@ -6,6 +6,7 @@ import { dataUrl } from '../data/loader'
 import { useScene } from '../hooks/useScene'
 import { useCurrentScene } from '../data/SceneContext'
 import { Skeleton } from './Skeleton'
+import { OrbitHint } from './OrbitHint'
 
 const ADVANCE_INTERVAL_MS = 600
 const RESUME_AFTER_INTERACT_MS = 3000
@@ -28,9 +29,11 @@ export function PairCaptureViewer() {
     lastInteractedAt.current = 0
   }, [sceneName])
 
-  // Auto-advance unless the user just dragged the slider.
+  // Auto-advance unless the user just dragged the slider — and never for users
+  // who prefer reduced motion (they can still step through with the slider).
   useEffect(() => {
     if (!scene) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const N = scene.meta.num_pairs
     const id = setInterval(() => {
       const since = Date.now() - lastInteractedAt.current
@@ -63,8 +66,9 @@ export function PairCaptureViewer() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div>
-        <div className="aspect-square rounded-lg border border-slate-200 bg-slate-50">
-          <Canvas camera={{ position: [0, 0.3, -3.5], fov: 35 }}>
+        <div className="relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+          <OrbitHint />
+          <Canvas camera={{ position: [0, 0.3, -3.5], fov: 35 }} className="cursor-grab active:cursor-grabbing">
             <ambientLight intensity={0.5} />
             <directionalLight position={[3, 5, 3]} intensity={0.7} />
             <gridHelper args={[6, 12]} />
