@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { TableOfContents } from './TableOfContents'
 import { SceneSelector } from './SceneSelector'
+import { ScrollProgress } from './ScrollProgress'
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
@@ -28,10 +29,12 @@ function Header() {
           helmholtz<span className="text-accent">.demo</span>
         </a>
         <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className="hidden sm:inline">Scene</span>
+          <span className="hidden sm:inline">Scene (applies to every section)</span>
+          <span className="sm:hidden">Scene</span>
           <SceneSelector compact />
         </div>
       </div>
+      <ScrollProgress />
     </header>
   )
 }

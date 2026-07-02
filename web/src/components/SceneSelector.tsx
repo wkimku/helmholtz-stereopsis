@@ -20,8 +20,11 @@ export function SceneSelector({ compact = false }: { compact?: boolean }) {
 
   return (
     <div>
-      <p className="mb-3 font-mono text-xs uppercase tracking-widest text-slate-400">
+      <p className="mb-1 font-mono text-xs uppercase tracking-widest text-slate-400">
         Scene
+      </p>
+      <p className="mb-3 text-xs text-slate-500">
+        Switches every figure below at once.
       </p>
       <div className="space-y-1.5">
         {available.map((s) => {
@@ -41,9 +44,6 @@ export function SceneSelector({ compact = false }: { compact?: boolean }) {
           )
         })}
       </div>
-      <p className="mt-3 text-xs text-slate-500">
-        All sections re-load with the chosen scene.
-      </p>
     </div>
   )
 }
