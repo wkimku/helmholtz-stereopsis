@@ -1,23 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useScene } from '../hooks/useScene'
-import { loadCostVolume, costCurveAtPixel } from '../data/loader'
-import type { CostVolumeData } from '../data/loader'
+import {
+  loadCostVolume,
+  loadSigmaVolume,
+  costCurveAtPixel,
+  sigmaCurvesAtPixel,
+} from '../data/loader'
+import type { CostVolumeData, SigmaVolumeData } from '../data/loader'
 import { Skeleton } from './Skeleton'
+import { SigmaCurvesPlot } from './SigmaCurvesPlot'
 
 type Pixel = { u: number; v: number; uNorm: number; vNorm: number }
+type PlotMode = 'ratio' | 'sigmas'
 
 /** Section 5 main interactive: click a pixel, see cost(z). */
 export function CostCurveExplorer() {
   const { scene, error } = useScene()
   const [cv, setCv] = useState<CostVolumeData | null>(null)
+  const [sv, setSv] = useState<SigmaVolumeData | null>(null)
   const [pixel, setPixel] = useState<Pixel | null>(null)
   const [loadingCv, setLoadingCv] = useState(false)
+  const [loadingSv, setLoadingSv] = useState(false)
+  const [mode, setMode] = useState<PlotMode>('ratio')
 
   useEffect(() => {
     if (!scene) return
     let cancelled = false
     setLoadingCv(true)
     setCv(null)
+    setSv(null)
     setPixel(null) // stale marker belongs to the previous scene's image
     loadCostVolume(scene)
       .then((data) => {
@@ -35,6 +46,31 @@ export function CostCurveExplorer() {
     }
   }, [scene])
 
+  // Lazily fetch the (larger) sigma volume only when the breakdown view is first
+  // requested for the current scene. Deps are [mode, scene] only — including sv
+  // or loadingSv would let a state update cancel the in-flight fetch and strand
+  // the loading flag. The `if (sv) return` guard reads the current render's sv.
+  useEffect(() => {
+    if (mode !== 'sigmas' || !scene || sv) return
+    let cancelled = false
+    setLoadingSv(true)
+    loadSigmaVolume(scene)
+      .then((data) => {
+        if (cancelled) return
+        setSv(data)
+        setLoadingSv(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setSv(null)
+        setLoadingSv(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, scene])
+
   if (error) return <div className="text-sm text-red-500">{error}</div>
 
   return (
@@ -49,20 +85,71 @@ export function CostCurveExplorer() {
         <Skeleton aspect="square" label="Loading scene…" />
       )}
       <div className="rounded-lg border border-slate-200 bg-white p-4">
-        <p className="text-sm font-medium text-ink">Cost vs depth</p>
-        <p className="mt-1 text-xs text-slate-500">
-          Plot of σ₂/σ₁ for the clicked pixel. The peak indicates the most likely depth.
-        </p>
-        {loadingCv && (
-          <Skeleton className="mt-4 h-44" label="Loading cost volume…" />
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-ink">
+              {mode === 'ratio' ? 'Cost vs depth' : 'Singular values vs depth'}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {mode === 'ratio'
+                ? 'Plot of σ₂/σ₁ for the clicked pixel. The peak indicates the most likely depth.'
+                : 'The three singular values behind that ratio (see §4). σ₁ dips at the peak.'}
+            </p>
+          </div>
+          <div className="flex shrink-0 overflow-hidden rounded-md border border-slate-200 text-xs">
+            <button
+              onClick={() => setMode('ratio')}
+              className={`px-2 py-1 ${mode === 'ratio' ? 'bg-accent text-white' : 'bg-white text-slate-600'}`}
+            >
+              σ₂/σ₁
+            </button>
+            <button
+              onClick={() => setMode('sigmas')}
+              className={`px-2 py-1 ${mode === 'sigmas' ? 'bg-accent text-white' : 'bg-white text-slate-600'}`}
+            >
+              σ₁ σ₂ σ₃
+            </button>
+          </div>
+        </div>
+
+        {loadingCv && <Skeleton className="mt-4 h-44" label="Loading cost volume…" />}
+        {mode === 'sigmas' && loadingSv && (
+          <Skeleton className="mt-4 h-44" label="Loading sigma volume…" />
         )}
-        {cv && pixel && <CostPlot cv={cv} pixel={pixel} />}
-        {cv && !pixel && (
+        {cv && pixel && mode === 'ratio' && <CostPlot cv={cv} pixel={pixel} />}
+        {cv && sv && pixel && mode === 'sigmas' && !loadingSv && (
+          <SigmaBreakdown cv={cv} sv={sv} pixel={pixel} />
+        )}
+        {cv && !pixel && !loadingCv && (
           <div className="mt-6 text-sm text-slate-500">Click anywhere on the image →</div>
         )}
       </div>
     </div>
   )
+}
+
+/** The §4-style three-curve view, with the peak taken from the cost volume so
+ *  it matches the ratio view and the depth map exactly. */
+function SigmaBreakdown({
+  cv,
+  sv,
+  pixel,
+}: {
+  cv: CostVolumeData
+  sv: SigmaVolumeData
+  pixel: Pixel
+}) {
+  const { z, sigma1, sigma2, sigma3 } = useMemo(
+    () => sigmaCurvesAtPixel(sv, pixel.uNorm, pixel.vNorm),
+    [sv, pixel],
+  )
+  const peakZ = useMemo(() => {
+    const { z: cz, cost } = costCurveAtPixel(cv, pixel.uNorm, pixel.vNorm)
+    let best = 0
+    for (let i = 1; i < cost.length; i++) if (cost[i] > cost[best]) best = i
+    return cz[best]
+  }, [cv, pixel])
+  return <SigmaCurvesPlot z={z} sigma1={sigma1} sigma2={sigma2} sigma3={sigma3} peakZ={peakZ} />
 }
 
 function ClickableImage({

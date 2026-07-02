@@ -14,20 +14,11 @@ export function DepthAmbiguityExplorer() {
   const { scene, sceneName } = useScene()
   const [cv, setCv] = useState<CostVolumeData | null>(null)
   const [points, setPoints] = useState<Pixel[]>([])
-  // Monotonic counter so each click gets a fresh palette index, even after the
-  // ring buffer drops the oldest pixel. The previous code used `prev.length`,
-  // which gets capped at the buffer size and then kept reusing the same color.
-  // Initialized in the scene-change effect below.
-  const [clickCount, setClickCount] = useState(2)
   const ref = useRef<HTMLDivElement>(null)
 
-  // Reset comparisons whenever the scene changes. Start the click counter
-  // past the preset color indices so the first user click already gets a fresh
-  // hue (presets occupy ROTATE_COLORS[0..presets.length-1]).
+  // Reset comparisons whenever the scene changes.
   useEffect(() => {
-    const presets = presetPixelsForScene(sceneName)
-    setPoints(presets)
-    setClickCount(presets.length)
+    setPoints(presetPixelsForScene(sceneName))
   }, [sceneName])
 
   useEffect(() => {
@@ -60,18 +51,15 @@ export function DepthAmbiguityExplorer() {
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
     const rect = ref.current!.getBoundingClientRect()
-    const u = (e.clientX - rect.left) / rect.width
-    const v = (e.clientY - rect.top) / rect.height
-    const colorIdx = clickCount % ROTATE_COLORS.length
-    const next: Pixel = {
-      uNorm: Math.max(0, Math.min(1, u)),
-      vNorm: Math.max(0, Math.min(1, v)),
-      label: `clicked pixel #${clickCount + 1}`,
-      color: ROTATE_COLORS[colorIdx],
-    }
-    setClickCount((n) => n + 1)
-    // Keep at most 4 comparisons (preserves user's most recent picks).
-    setPoints((prev) => [...prev.slice(-3), next])
+    const u = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    const v = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
+    // Derive color/label from the list position inside the functional update so
+    // rapid clicks (batched before a re-render) still get distinct hues. Keep
+    // every clicked comparison — colorForIndex gives unlimited distinct colors.
+    setPoints((prev) => {
+      const idx = prev.length
+      return [...prev, { uNorm: u, vNorm: v, label: `clicked pixel #${idx + 1}`, color: colorForIndex(idx) }]
+    })
   }
 
   return (
@@ -105,20 +93,13 @@ export function DepthAmbiguityExplorer() {
           <span>Click to add a comparison pixel.</span>
           <span className="grow" />
           <button
-            onClick={() => {
-              const presets = presetPixelsForScene(sceneName)
-              setPoints(presets)
-              setClickCount(presets.length)
-            }}
+            onClick={() => setPoints(presetPixelsForScene(sceneName))}
             className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200"
           >
             reset to presets
           </button>
           <button
-            onClick={() => {
-              setPoints([])
-              setClickCount(0)
-            }}
+            onClick={() => setPoints([])}
             className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700 hover:bg-slate-200"
           >
             clear
@@ -135,11 +116,11 @@ export function DepthAmbiguityExplorer() {
         </p>
         {!cv && <Skeleton className="mt-4 h-44" label="Loading cost volume…" />}
         {cv && <MultiCurvePlot cv={cv} points={points} />}
-        <ul className="mt-4 space-y-1 text-xs text-slate-600">
+        <ul className="mt-4 max-h-40 space-y-1 overflow-y-auto text-xs text-slate-600">
           {points.map((p, i) => (
             <li key={i} className="flex items-center gap-2">
               <span
-                className="inline-flex h-3 w-3 items-center justify-center rounded-full text-[8px] font-bold text-white"
+                className="inline-flex h-3 w-3 shrink-0 items-center justify-center rounded-full text-[8px] font-bold text-white"
                 style={{ backgroundColor: p.color }}
               >
                 {i + 1}
@@ -163,6 +144,14 @@ const ROTATE_COLORS = [
   '#ec4899', // pink
   '#84cc16', // lime
 ]
+
+/** Distinct color per comparison, unbounded: the hand-picked palette first,
+ *  then golden-angle hue rotation so any number of clicks stay distinguishable. */
+function colorForIndex(i: number): string {
+  if (i < ROTATE_COLORS.length) return ROTATE_COLORS[i]
+  const hue = (i * 137.508) % 360
+  return `hsl(${hue.toFixed(0)}, 70%, 55%)`
+}
 
 /**
  * Hand-picked "good" and "bad" demo pixels per scene. The bad pixels exploit
