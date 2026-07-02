@@ -2,13 +2,17 @@
 
 Reciprocity constraint (Zickler et al., ECCV 2002):
 For a reciprocal image pair where camera and light positions are swapped between
-two locations A and B, the surface normal n at scene point P satisfies
+two locations O_A and O_B, the surface normal n at scene point P satisfies
 
-    [ I_A * (P - O_B) / |P - O_B|^3  -  I_B * (P - O_A) / |P - O_A|^3 ] · n  =  0
+    [ I_A * (O_A - P) / |O_A - P|^3  -  I_B * (O_B - P) / |O_B - P|^3 ] · n  =  0
 
-where I_A is the pixel intensity in the image taken with camera at A (lit from B),
-I_B is the corresponding intensity in the swapped image, and O_A, O_B are the
-two positions. Stacking N such row constraints into a matrix W(P), the true
+where I_A is the pixel intensity in the image taken with the camera at O_A
+(lit from O_B) and I_B is the intensity in the swapped capture (camera at O_B,
+lit from O_A). Each intensity couples with the direction toward its *own*
+camera: writing the two rendering equations and eliminating the (reciprocal)
+BRDF leaves I_A multiplied by the light cosine/falloff factor of the *other*
+capture — and the other capture's light sits exactly where this capture's
+camera is. Stacking N such row constraints into a matrix W(P), the true
 surface point P* makes W rank-2; the normal is then the right null-vector of W.
 
 We score depth candidates by how close W is to rank-2, using
@@ -66,15 +70,18 @@ def build_w_matrix(
 ) -> np.ndarray:
     """Build W(P) of shape (..., N, 3) for each candidate surface point.
 
-    For pair k the two captures are at antipodal positions A and B with the
-    camera and light swapped between them. The reciprocity constraint is
+    For pair k the two captures swap the camera and light between two
+    positions. Writing the rendering equation for both captures and canceling
+    the (reciprocal) BRDF gives the constraint
 
-        n · ( I_r · nu_l / |nu_l|^3 - I_l · nu_r / |nu_r|^3 ) = 0
+        n · ( I_r · nu_r / |nu_r|^3 - I_l · nu_l / |nu_l|^3 ) = 0
 
-    where I_r is the intensity in the "camera at A" image, I_l is the intensity
-    in the "camera at B" image, and nu_r, nu_l are the (light - P) vectors in
-    those two images respectively (note the cross-pairing: I_r couples with
-    nu_l, not nu_r).
+    where I_r, I_l are the pixel intensities of the two captures at the
+    projection of P, and nu_r, nu_l point from P toward each capture's *own
+    camera* position. The coupling is intensity-with-own-camera because
+    eliminating the BRDF leaves each intensity multiplied by the light
+    cosine/falloff of the *other* capture — whose light sits exactly where
+    this capture's camera is.
     """
     out_shape = surface_points.shape[:-1] + (num_pairs, 3)
     W = np.zeros(out_shape, dtype=np.float32)
@@ -90,15 +97,17 @@ def build_w_matrix(
         I_r = _sample_image_nearest(img_stack[..., idx_r], u_r, v_r)
         I_l = _sample_image_nearest(img_stack[..., idx_l], u_l, v_l)
 
-        # Vectors from surface point to each image's light source.
-        nu_r = light_pos[idx_r] - surface_points          # light in image r is at B
-        nu_l = light_pos[idx_l] - surface_points          # light in image l is at A
-        d_r = np.linalg.norm(nu_r, axis=-1, keepdims=True)
-        d_l = np.linalg.norm(nu_l, axis=-1, keepdims=True)
+        # Vector from P toward each capture's own camera. We read the position
+        # from the *other* capture's light entry — in a reciprocal pair the
+        # light of capture l sits exactly where the camera of capture r is.
+        to_cam_r = light_pos[idx_l] - surface_points      # == camera_pos[idx_r] - P
+        to_cam_l = light_pos[idx_r] - surface_points      # == camera_pos[idx_l] - P
+        d_r = np.linalg.norm(to_cam_r, axis=-1, keepdims=True)
+        d_l = np.linalg.norm(to_cam_l, axis=-1, keepdims=True)
 
         W[..., k, :] = (
-            I_r[..., None] * nu_l / (d_l ** 3 + eps)
-            - I_l[..., None] * nu_r / (d_r ** 3 + eps)
+            I_r[..., None] * to_cam_r / (d_r ** 3 + eps)
+            - I_l[..., None] * to_cam_l / (d_l ** 3 + eps)
         )
 
     return W
@@ -165,7 +174,14 @@ def depth_search(
         if return_sigma_volume:
             # eigvals are eigenvalues of W^T W, ascending — singular values are
             # the square roots. Clip tiny negatives that come from FP rounding.
-            sigma_volume[:, :, j, :] = np.sqrt(np.maximum(eigvals, 0.0))
+            # Apply the same spatial smoothing as the cost so a sigma-ratio
+            # peak recomputed from this volume lands on (nearly) the same depth
+            # as the shipped cost/depth maps.
+            sigmas = np.sqrt(np.maximum(eigvals, 0.0))
+            if smoothing_size and smoothing_size > 1:
+                for c in range(3):
+                    sigmas[..., c] = uniform_filter(sigmas[..., c], size=smoothing_size)
+            sigma_volume[:, :, j, :] = sigmas
 
         better = cost > best_cost
         best_cost = np.where(better, cost, best_cost)

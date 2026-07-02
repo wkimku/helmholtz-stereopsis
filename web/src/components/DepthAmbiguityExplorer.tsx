@@ -35,7 +35,18 @@ export function DepthAmbiguityExplorer() {
       setCv(null)
       return
     }
-    void loadCostVolume(scene).then(setCv)
+    let cancelled = false
+    setCv(null)
+    loadCostVolume(scene)
+      .then((data) => {
+        if (!cancelled) setCv(data)
+      })
+      .catch(() => {
+        if (!cancelled) setCv(null)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [scene])
 
   if (!scene) {

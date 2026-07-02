@@ -15,18 +15,26 @@ export function PairsComparison() {
   const baseUrl = dataUrl(`data/${current}_pairs/`)
 
   useEffect(() => {
+    let cancelled = false
     setMeta(null)
     setMissing(false)
     fetch(baseUrl + 'meta.json').then(
       async (r) => {
+        if (cancelled) return
         if (!r.ok) {
           setMissing(true)
           return
         }
-        setMeta(await r.json())
+        const json = await r.json()
+        if (!cancelled) setMeta(json)
       },
-      () => setMissing(true),
+      () => {
+        if (!cancelled) setMissing(true)
+      },
     )
+    return () => {
+      cancelled = true
+    }
   }, [baseUrl])
 
   if (missing) {

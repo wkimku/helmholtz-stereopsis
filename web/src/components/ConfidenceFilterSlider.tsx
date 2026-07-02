@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useScene } from '../hooks/useScene'
 import { loadFloat32 } from '../data/loader'
 import { viridis } from '../data/colormap'
+import { Skeleton } from './Skeleton'
 
 type RawData = {
   depth: Float32Array      // length W*H, raw per-pixel
@@ -24,6 +25,7 @@ type DepthSource = 'raw' | 'fc'
 export function ConfidenceFilterSlider() {
   const { scene } = useScene()
   const [data, setData] = useState<RawData | null>(null)
+  const [loadError, setLoadError] = useState(false)
   const [pct, setPct] = useState(15)
   const [source, setSource] = useState<DepthSource>('raw')
   const depthRef = useRef<HTMLCanvasElement>(null)
@@ -31,9 +33,19 @@ export function ConfidenceFilterSlider() {
 
   useEffect(() => {
     if (!scene) return
+    let cancelled = false
     setData(null)
+    setLoadError(false)
     void loadRaw(scene.baseUrl, scene.meta.width, scene.meta.height, !!scene.meta.has_depth_fc)
-      .then(setData)
+      .then((d) => {
+        if (!cancelled) setData(d)
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [scene])
 
   const stats = useMemo(() => {
@@ -47,8 +59,10 @@ export function ConfidenceFilterSlider() {
     drawNormal(normalRef.current, data, stats)
   }, [data, stats, source])
 
-  if (!scene) return <div className="text-sm text-slate-500">Loading scene…</div>
-  if (!data) return <div className="text-sm text-slate-500">Loading raw maps…</div>
+  if (!scene) return <Skeleton className="h-64" label="Loading scene…" />
+  if (loadError)
+    return <div className="text-sm text-red-500">Failed to load the depth/normal maps for this scene.</div>
+  if (!data) return <Skeleton className="h-64" label="Loading raw maps…" />
 
   const fcAvailable = data.depthFc !== null
 
@@ -108,8 +122,11 @@ export function ConfidenceFilterSlider() {
 
       {stats && (
         <p className="text-xs text-slate-500">
-          Threshold cost ≥ <span className="font-mono">{stats.threshold.toFixed(3)}</span>;
-          keeping {stats.keptCount.toLocaleString()} / {stats.fgCount.toLocaleString()}{' '}
+          Threshold cost ≥{' '}
+          <span className="font-mono">
+            {Number.isFinite(stats.threshold) ? stats.threshold.toFixed(3) : '0 (keep all)'}
+          </span>
+          ; keeping {stats.keptCount.toLocaleString()} / {stats.fgCount.toLocaleString()}{' '}
           foreground pixels ({((stats.keptCount / Math.max(1, stats.fgCount)) * 100).toFixed(1)}%).
           {!fcAvailable && (
             <>
@@ -194,7 +211,11 @@ function computeStats(d: RawData, pct: number, source: DepthSource): Stats {
   }
   fgCosts.sort((a, b) => a - b)
   const k = Math.floor((pct / 100) * fgCosts.length)
-  const threshold = fgCosts.length === 0 ? 0 : fgCosts[Math.min(k, fgCosts.length - 1)]
+  // At 0% keep *every* foreground pixel: use -Infinity so the strict `> threshold`
+  // test below never drops the lowest-cost pixels (which sit exactly at the
+  // minimum). Matches confidence_mask() in the Python pipeline.
+  const threshold =
+    pct <= 0 || fgCosts.length === 0 ? -Infinity : fgCosts[Math.min(k, fgCosts.length - 1)]
 
   const depthArr = source === 'fc' && d.depthFc ? d.depthFc : d.depth
 

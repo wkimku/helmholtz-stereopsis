@@ -9,7 +9,7 @@ export type SectionEntry = {
 }
 
 export const SECTIONS: SectionEntry[] = [
-  { id: 'intro',         number: '01', title: 'Why Helmholtz Stereopsis?',         blurb: 'Reconstructing arbitrary BRDFs without texture or Lambertian assumptions.' },
+  { id: 'intro',         number: '01', title: 'Why Helmholtz Stereopsis?',         blurb: 'Recovering shape for surfaces with arbitrary BRDFs — no texture or Lambertian assumptions.' },
   { id: 'reciprocity',   number: '02', title: 'The reciprocity principle',          blurb: 'BRDF symmetry under swapping light and view.' },
   { id: 'capture',       number: '03', title: 'Reciprocal pair capture',            blurb: 'How the image stack is acquired.' },
   { id: 'w-matrix',      number: '04', title: 'The W matrix and rank-2 search',     blurb: 'Turning reciprocity into a per-pixel constraint.' },

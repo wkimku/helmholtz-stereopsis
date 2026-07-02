@@ -68,7 +68,16 @@ def load_scene(scene_dir: Path) -> Scene:
 
 def load_image_stack(scene: Scene) -> np.ndarray:
     """Load all 2N captured images into a (H, W, 2N) float32 stack of R-channel intensities."""
-    stack = np.zeros((scene.intr.height, scene.intr.width, 2 * scene.num_pairs), dtype=np.float32)
+    expected = 2 * scene.num_pairs
+    got = len(scene.image_paths)
+    if got != expected:
+        raise ValueError(
+            f"expected {expected} images (2 * num_pairs={scene.num_pairs}) in "
+            f"{scene.image_paths[0].parent if scene.image_paths else '<images dir>'} "
+            f"but found {got}. A partial/stale render will silently corrupt the "
+            f"W-matrix rows — re-render the scene or clear old img_*.png files."
+        )
+    stack = np.zeros((scene.intr.height, scene.intr.width, expected), dtype=np.float32)
     for i, p in enumerate(scene.image_paths):
         img = np.array(Image.open(p))
         if img.ndim == 3:

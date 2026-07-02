@@ -45,15 +45,22 @@ export function FusionViewer() {
   const [source, setSource] = useState<DepthSource>('smooth')
 
   useEffect(() => {
+    let cancelled = false
     setData(null)
     setMissing(false)
     void loadMerged(current).then(
       (m) => {
+        if (cancelled) return
         setData(m)
         setEnabled(m.poseNames.map(() => true))
       },
-      () => setMissing(true),
+      () => {
+        if (!cancelled) setMissing(true)
+      },
     )
+    return () => {
+      cancelled = true
+    }
   }, [current])
 
   if (missing) {

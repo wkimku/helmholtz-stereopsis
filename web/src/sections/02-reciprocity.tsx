@@ -49,11 +49,13 @@ export function Section02Reciprocity() {
 
       <p>
         Reciprocity holds for almost every real material — diffuse paint,
-        metallic, translucent, glossy plastics — because it is a consequence of
-        the second law of thermodynamics applied to light transport. There are
-        a handful of exceptions (fluorescent and phosphorescent surfaces,
-        polarization-dependent reflectance), and outside those it is a free
-        constraint that no other surface-reconstruction method exploits.
+        metallic, glossy plastics — because it follows from the time-reversal
+        (Lorentz) symmetry of electromagnetic propagation: a light path is
+        equally valid traversed in either direction. There are a handful of
+        exceptions (fluorescent and phosphorescent surfaces, which re-emit at a
+        different wavelength or time, and magneto-optic / polarization-active
+        media), and outside those it is a free constraint that no other
+        surface-reconstruction method exploits.
       </p>
 
       <p className="section-bridge">

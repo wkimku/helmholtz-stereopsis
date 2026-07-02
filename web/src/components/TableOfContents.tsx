@@ -17,11 +17,29 @@ export function TableOfContents() {
       },
       { rootMargin: '-20% 0px -70% 0px', threshold: [0, 1] },
     )
-    SECTIONS.forEach((s) => {
-      const el = document.getElementById(s.id)
-      if (el) observer.observe(el)
-    })
-    return () => observer.disconnect()
+
+    // Lazy sections (§3, §8, §10) first mount as a Suspense fallback node, then
+    // get REPLACED by the real section node when their chunk loads. Observing
+    // once on mount would leave those three watching detached fallback nodes, so
+    // they'd never highlight. Re-observe whenever the DOM changes.
+    const observed = new WeakSet<Element>()
+    const observeAll = () => {
+      SECTIONS.forEach((s) => {
+        const el = document.getElementById(s.id)
+        if (el && !observed.has(el)) {
+          observer.observe(el)
+          observed.add(el)
+        }
+      })
+    }
+    observeAll()
+    const mo = new MutationObserver(observeAll)
+    mo.observe(document.body, { childList: true, subtree: true })
+
+    return () => {
+      observer.disconnect()
+      mo.disconnect()
+    }
   }, [])
 
   return (

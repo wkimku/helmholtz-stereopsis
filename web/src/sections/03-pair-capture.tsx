@@ -21,11 +21,12 @@ export function Section03PairCapture() {
       <p>
         For this demo a single object sits in front of the camera while a
         camera/light pair sweeps around it on a circle. We take{' '}
-        <em>2N</em> images from <em>N</em> evenly spaced positions and pair
-        each capture with the one taken from the antipodal position on the
-        circle. Because the camera and light always sit on opposite sides of
-        the circle, swapping them between two captures is just a re-indexing —
-        no extra calibration required.
+        <em>2N</em> images from <em>2N</em> evenly spaced positions on that
+        circle — one capture per position — and pair each capture with the one
+        taken from the antipodal position. Because the camera and light always
+        sit on opposite sides of the circle, the two captures of a pair already
+        have their camera and light swapped: forming a reciprocal pair is just
+        a re-indexing, no extra calibration required.
       </p>
 
       <div className="figure-card">

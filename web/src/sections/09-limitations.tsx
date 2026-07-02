@@ -48,10 +48,14 @@ export function Section09Limitations() {
         the very few surface-reconstruction methods that makes <em>no</em>{' '}
         assumption about the surface BRDF. Mirror-like, glossy, anisotropic,
         even iridescent — as long as the reflectance is reciprocal (almost every
-        real <em>opaque</em> material), the algorithm is in scope. Highly
-        translucent or fluorescent surfaces are <em>not</em>: they violate the
-        single-bounce surface-reflection model the per-pixel constraint is
-        derived from.
+        real <em>opaque</em> material), the algorithm is in scope. Two kinds of
+        surface fall out of scope, for two different reasons: highly{' '}
+        <em>translucent</em> ones break the single-bounce surface-reflection
+        model the per-pixel constraint is derived from (light enters, scatters
+        under the surface, and exits elsewhere), while <em>fluorescent</em>{' '}
+        ones break Helmholtz reciprocity itself — they re-emit absorbed light at
+        a different wavelength, so the reflectance is no longer symmetric under
+        swapping the two directions.
       </p>
 
       <p className="section-bridge">

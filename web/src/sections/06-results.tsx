@@ -12,11 +12,15 @@ export function Section06Results() {
       <p>
         Running the depth search across every pixel and picking the
         cost-maximum at each one gives a depth map and a normal map for the
-        viewpoint at the origin. Both come from the same eigendecomposition
-        of <code>W(P)</code>, but they have very different noise behavior:
-        the normal map is much cleaner than the depth map. The original paper
-        notes the same thing, and the practical fix is to integrate the
-        (clean) normal field into a smooth depth field via Frankot-Chellappa.
+        viewpoint at the origin. Both come from the same computation at the
+        winning depth — the eigendecomposition of{' '}
+        <code>WᵀW</code> (equivalently the SVD of the non-square{' '}
+        <code>W(P)</code>): the depth is <em>where</em> the smallest singular
+        value bottoms out, the normal is the corresponding null vector. Yet
+        they have very different noise behavior — the normal map is much
+        cleaner than the depth map. The original paper notes the same thing,
+        and the practical fix is to integrate the (clean) normal field into a
+        smooth depth field via Frankot-Chellappa.
       </p>
 
       <figure className="my-8">

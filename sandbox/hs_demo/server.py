@@ -6,6 +6,7 @@ import argparse
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -19,8 +20,28 @@ import uuid
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WEB_ROOT = REPO_ROOT / "web"
 DEFAULT_BLENDER = "/Applications/Blender.app/Contents/MacOS/Blender"
+# The Blender executable is fixed at server start (CLI flag / env), NEVER taken
+# from a request body — otherwise any web page you visit while this server runs
+# could POST an arbitrary executable path to /api/run and have it executed.
+BLENDER_PATH = DEFAULT_BLENDER
 JOBS: dict[str, dict[str, Any]] = {}
 JOB_LOCK = threading.Lock()
+
+
+def _origin_allowed(origin: str) -> bool:
+    """Allow the local dev origin and *.github.io Pages hosts only.
+
+    A request with no Origin header (curl, same-origin fetch) is allowed; a
+    cross-site request from an arbitrary page carries that page's Origin and is
+    rejected, which is what blocks drive-by calls to the mutating endpoint.
+    """
+    if not origin:
+        return True
+    if origin.startswith("http://127.0.0.1") or origin.startswith("http://localhost"):
+        return True
+    if origin.startswith("https://") and origin.endswith(".github.io"):
+        return True
+    return False
 
 
 class DemoHandler(SimpleHTTPRequestHandler):
@@ -30,10 +51,13 @@ class DemoHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(WEB_ROOT), **kwargs)
 
     def end_headers(self) -> None:
-        # Permit cross-origin calls from the static demo (served from a
-        # different origin like https://wkim.github.io). The server only
-        # binds to localhost so wide-open CORS is acceptable here.
-        self.send_header("Access-Control-Allow-Origin", "*")
+        # Reflect the request Origin only when it is on the allowlist, so the
+        # static demo (e.g. https://<user>.github.io) can call this localhost
+        # server without opening it up to every website.
+        origin = self.headers.get("Origin", "")
+        if _origin_allowed(origin) and origin:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         super().end_headers()
@@ -61,6 +85,11 @@ class DemoHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:
         if self.path != "/api/run":
             self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        # Reject cross-site callers before doing any work — this endpoint spawns
+        # subprocesses, so it must not be drive-by reachable from another origin.
+        if not _origin_allowed(self.headers.get("Origin", "")):
+            self._send_json({"ok": False, "error": "origin not allowed"}, status=HTTPStatus.FORBIDDEN)
             return
         try:
             payload = self._read_json()
@@ -182,6 +211,7 @@ def run_pipeline(payload: dict[str, Any], job_id: str | None = None) -> dict[str
     ]
     solve_cmd = [
         sys.executable,
+        "-u",  # unbuffered stdout so "Depth i/N" progress streams live
         "-m",
         "hs_demo.cli",
         "solve",
@@ -195,6 +225,7 @@ def run_pipeline(payload: dict[str, Any], job_id: str | None = None) -> dict[str
     ]
     merge_cmd = [
         sys.executable,
+        "-u",
         "-m",
         "hs_demo.cli",
         "merge",
@@ -264,6 +295,7 @@ def run_logged_command(
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        env={**os.environ, "PYTHONUNBUFFERED": "1"},
     )
     output_lines: list[str] = []
     render_done = 0
@@ -308,7 +340,8 @@ def normalize_settings(payload: dict[str, Any]) -> dict[str, Any]:
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     return {
         "run_name": safe_run_name(str(payload.get("runName") or f"web_{timestamp}")),
-        "blender": str(payload.get("blender") or DEFAULT_BLENDER),
+        # Server-controlled — deliberately NOT read from the request body.
+        "blender": BLENDER_PATH,
         "resolution": clamp_int(payload.get("resolution"), 64, 512, 192),
         "samples": clamp_int(payload.get("samples"), 1, 256, 32),
         "pairs": clamp_int(payload.get("pairs"), 3, 18, 6),
@@ -346,12 +379,21 @@ def choice(value: Any, allowed: set[str], default: str) -> str:
 
 
 def main() -> None:
+    global BLENDER_PATH
     parser = argparse.ArgumentParser(description="Serve the local Helmholtz demo UI")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument(
+        "--blender",
+        default=os.environ.get("HS_BLENDER", DEFAULT_BLENDER),
+        help="Path to the Blender executable (also settable via HS_BLENDER). "
+        "This is the ONLY way to set it — request bodies cannot.",
+    )
     args = parser.parse_args()
+    BLENDER_PATH = args.blender
     server = ThreadingHTTPServer((args.host, args.port), DemoHandler)
     print(f"Serving Helmholtz demo at http://{args.host}:{args.port}")
+    print(f"Using Blender: {BLENDER_PATH}")
     server.serve_forever()
 
 

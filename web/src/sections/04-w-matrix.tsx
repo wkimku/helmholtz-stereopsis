@@ -20,14 +20,21 @@ export function Section04WMatrix() {
         </>
       }
     >
-      <Block>{`\\bigl[\\,I_r\\,\\frac{\\nu_l}{\\|\\nu_l\\|^3}\\;-\\;I_l\\,\\frac{\\nu_r}{\\|\\nu_r\\|^3}\\,\\bigr]\\cdot\\hat n \\;=\\; 0`}</Block>
+      <Block>{`\\bigl[\\,I_l\\,\\frac{\\nu_l}{\\|\\nu_l\\|^3}\\;-\\;I_r\\,\\frac{\\nu_r}{\\|\\nu_r\\|^3}\\,\\bigr]\\cdot\\hat n \\;=\\; 0`}</Block>
       <p>
         Here <Inline>{`\\nu_l = O_l - P`}</Inline> and{' '}
-        <Inline>{`\\nu_r = O_r - P`}</Inline> are the un-normalized vectors
-        from the surface point to the two reciprocal positions (so{' '}
-        <Inline>{`\\hat v_l = \\nu_l / \\|\\nu_l\\|`}</Inline>), and{' '}
-        <Inline>{`I_l, I_r`}</Inline> are the pixel intensities of the two
-        captures at the projection of <Inline>{`P`}</Inline>.
+        <Inline>{`\\nu_r = O_r - P`}</Inline> are the un-normalized vectors from
+        the surface point <Inline>{`P`}</Inline> toward the two fixed positions{' '}
+        <Inline>{`O_l, O_r`}</Inline> from §2 (so{' '}
+        <Inline>{`\\hat v_l = \\nu_l / \\|\\nu_l\\|`}</Inline>).{' '}
+        <Inline>{`I_l`}</Inline> is the intensity of the capture whose{' '}
+        <em>camera</em> sits at <Inline>{`O_l`}</Inline> (lit from{' '}
+        <Inline>{`O_r`}</Inline>), and <Inline>{`I_r`}</Inline> the intensity of
+        the swapped capture (camera at <Inline>{`O_r`}</Inline>, lit from{' '}
+        <Inline>{`O_l`}</Inline>), both read at the projection of{' '}
+        <Inline>{`P`}</Inline>. Each intensity multiplies the direction toward
+        its own camera — that pairing is exactly what falls out of eliminating
+        the reciprocal BRDF between the two rendering equations.
       </p>
 
       <p>
@@ -41,9 +48,11 @@ export function Section04WMatrix() {
       </p>
 
       <p>
-        The algorithm searches over candidate depths along each camera ray and
-        picks the depth at which <code>W</code> is closest to rank-deficient.
-        Ordering the singular values smallest first as{' '}
+        The algorithm searches over candidate depths — sweeping{' '}
+        <Inline>{`z`}</Inline> at each fixed image-plane{' '}
+        <Inline>{`(x, y)`}</Inline> — and picks the depth at which{' '}
+        <code>W</code> is closest to rank-deficient. Ordering the singular
+        values smallest first as{' '}
         <Inline>{`\\sigma_1 \\le \\sigma_2 \\le \\sigma_3`}</Inline>, the score
         is the ratio <Inline>{`\\sigma_2 / \\sigma_1`}</Inline>, which goes to
         infinity exactly when <Inline>{`\\sigma_1`}</Inline> drops to zero —
@@ -54,12 +63,15 @@ export function Section04WMatrix() {
       <WMatrixFigure />
       <p className="figure-caption">
         Real singular values of <code>W(P)</code> at a clicked pixel as the
-        candidate depth sweeps along the camera ray. At the true depth{' '}
+        candidate depth <Inline>{`z`}</Inline> sweeps through the scene. At the
+        true depth{' '}
         <Inline>{`\\sigma_1`}</Inline> dips toward zero and the matrix becomes
         (approximately) rank-2; <Inline>{`\\sigma_2`}</Inline> and{' '}
         <Inline>{`\\sigma_3`}</Inline> stay non-zero. Click around — textured
         regions give a sharp dip; flat or symmetric regions give shallow or
-        multi-modal curves (we'll come back to that in §9).
+        multi-modal curves (we'll come back to that in §9). The marked peak of{' '}
+        <Inline>{`\\sigma_2/\\sigma_1`}</Inline> is the depth this pixel
+        resolves to.
       </p>
 
       <p className="section-bridge">

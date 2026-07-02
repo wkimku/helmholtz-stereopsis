@@ -67,6 +67,11 @@ def main() -> None:
     light = np.array(scene_meta["light_positions"], dtype=np.float32)
 
     img_paths = sorted((args.scene / "images").glob("img_*.png"))
+    if len(img_paths) != 2 * n_full:
+        raise ValueError(
+            f"{args.scene}: expected {2 * n_full} images (2 * num_pairs={n_full}) "
+            f"but found {len(img_paths)}; a partial/stale render would corrupt the result."
+        )
     img_stack = np.zeros((H, W, 2 * n_full), dtype=np.float32)
     for i, p in enumerate(img_paths):
         arr = np.array(Image.open(p))

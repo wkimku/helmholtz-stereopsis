@@ -15,11 +15,24 @@ export function CostCurveExplorer() {
 
   useEffect(() => {
     if (!scene) return
+    let cancelled = false
     setLoadingCv(true)
-    loadCostVolume(scene).then((data) => {
-      setCv(data)
-      setLoadingCv(false)
-    })
+    setCv(null)
+    setPixel(null) // stale marker belongs to the previous scene's image
+    loadCostVolume(scene)
+      .then((data) => {
+        if (cancelled) return
+        setCv(data)
+        setLoadingCv(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setCv(null)
+        setLoadingCv(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [scene])
 
   if (error) return <div className="text-sm text-red-500">{error}</div>
@@ -84,7 +97,11 @@ function ClickableImage({
       {marker && (
         <div
           className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lg"
-          style={{ left: marker.u, top: marker.v, backgroundColor: '#6366f1' }}
+          style={{
+            left: `${marker.uNorm * 100}%`,
+            top: `${marker.vNorm * 100}%`,
+            backgroundColor: '#6366f1',
+          }}
         />
       )}
     </div>

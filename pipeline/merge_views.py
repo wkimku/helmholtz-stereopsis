@@ -49,6 +49,11 @@ def precompute_view(
     n = meta["num_pairs"]
 
     img_paths = sorted((scene_dir / "images").glob("img_*.png"))
+    if len(img_paths) != 2 * n:
+        raise ValueError(
+            f"{scene_dir}: expected {2 * n} images (2 * num_pairs={n}) but found "
+            f"{len(img_paths)}; a partial/stale render would corrupt the result."
+        )
     H, W = intr.height, intr.width
     img_stack = np.zeros((H, W, 2 * n), dtype=np.float32)
     for i, p in enumerate(img_paths):

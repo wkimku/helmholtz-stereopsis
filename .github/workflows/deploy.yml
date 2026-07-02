@@ -10,9 +10,12 @@ permissions:
   pages: write
   id-token: write
 
+# Never cancel a deploy mid-flight — GitHub's own Pages starter workflow uses
+# cancel-in-progress: false so a queued run waits instead of interrupting a
+# deployment that is already publishing.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:

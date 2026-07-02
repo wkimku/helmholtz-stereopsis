@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useScene } from '../hooks/useScene'
-import { loadSigmaVolume, sigmaCurvesAtPixel } from '../data/loader'
-import type { SigmaVolumeData } from '../data/loader'
+import { loadSigmaVolume, loadCostVolume, sigmaCurvesAtPixel, costCurveAtPixel } from '../data/loader'
+import type { SigmaVolumeData, CostVolumeData } from '../data/loader'
 import { Skeleton } from './Skeleton'
 
 type Pixel = { u: number; v: number; uNorm: number; vNorm: number }
@@ -19,18 +19,36 @@ type Pixel = { u: number; v: number; uNorm: number; vNorm: number }
 export function WMatrixFigure() {
   const { scene, error } = useScene()
   const [sv, setSv] = useState<SigmaVolumeData | null>(null)
+  const [cv, setCv] = useState<CostVolumeData | null>(null)
   const [pixel, setPixel] = useState<Pixel | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!scene) return
+    let cancelled = false
     setLoading(true)
     setSv(null)
+    setCv(null)
     setPixel(null)
-    loadSigmaVolume(scene).then((data) => {
-      setSv(data)
-      setLoading(false)
-    })
+    // Load the sigma volume for the three curves and the cost volume for the
+    // peak marker. Marking the peak from the cost volume keeps §4's marker
+    // identical to §5 and to the shipped depth map (both driven by cost).
+    Promise.all([loadSigmaVolume(scene), loadCostVolume(scene)])
+      .then(([sigma, cost]) => {
+        if (cancelled) return
+        setSv(sigma)
+        setCv(cost)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setSv(null)
+        setCv(null)
+        setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [scene])
 
   if (error) return <div className="text-sm text-red-500">{error}</div>
@@ -45,9 +63,9 @@ export function WMatrixFigure() {
       <div className="rounded-lg border border-slate-200 bg-white p-4">
         <p className="text-sm font-medium text-ink">Singular values vs candidate depth</p>
         <p className="mt-1 text-xs text-slate-500">
-          σ₁, σ₂, σ₃ of W(P) at the clicked pixel as the candidate depth sweeps
-          along the camera ray. The vertical line marks the depth where σ₂/σ₁
-          peaks.
+          σ₁, σ₂, σ₃ of W(P) at the clicked pixel as the candidate depth{' '}
+          <em>z</em> sweeps through the scene. The vertical line marks the
+          depth this pixel resolves to — the same peak §5 and the depth map use.
         </p>
         {loading && (
           <Skeleton className="mt-4 h-44" label="Loading sigma volume…" />
@@ -57,7 +75,7 @@ export function WMatrixFigure() {
             No sigma volume shipped with this scene yet — re-run the pipeline export.
           </div>
         )}
-        {sv && pixel && <SigmaPlot sv={sv} pixel={pixel} />}
+        {sv && pixel && <SigmaPlot sv={sv} cv={cv} pixel={pixel} />}
         {sv && !pixel && (
           <div className="mt-6 text-sm text-slate-500">Click anywhere on the image →</div>
         )}
@@ -98,7 +116,11 @@ function ClickableImage({
       {marker && (
         <div
           className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lg"
-          style={{ left: marker.u, top: marker.v, backgroundColor: '#6366f1' }}
+          style={{
+            left: `${marker.uNorm * 100}%`,
+            top: `${marker.vNorm * 100}%`,
+            backgroundColor: '#6366f1',
+          }}
         />
       )}
     </div>
@@ -111,16 +133,40 @@ const COLORS = {
   sigma3: '#f59e0b', // largest
 }
 
-function SigmaPlot({ sv, pixel }: { sv: SigmaVolumeData; pixel: Pixel }) {
+function SigmaPlot({ sv, cv, pixel }: { sv: SigmaVolumeData; cv: CostVolumeData | null; pixel: Pixel }) {
   const { z, sigma1, sigma2, sigma3 } = useMemo(
     () => sigmaCurvesAtPixel(sv, pixel.uNorm, pixel.vNorm),
     [sv, pixel],
   )
 
-  // Find peak of sigma_2 / sigma_1 (the cost score from §4 prose).
+  // Mark the peak using the shipped cost volume (σ₂/σ₁ smoothed the same way as
+  // the depth map), so §4's marker lands on the exact depth §5 and the depth
+  // map report. Fall back to the ratio of the plotted sigmas if the cost volume
+  // is unavailable.
   const { peakZ, peakIdx } = useMemo(() => {
     let best = 0
     let bestVal = -Infinity
+    if (cv) {
+      const { z: cz, cost } = costCurveAtPixel(cv, pixel.uNorm, pixel.vNorm)
+      for (let i = 0; i < cost.length; i++) {
+        if (cost[i] > bestVal) {
+          bestVal = cost[i]
+          best = i
+        }
+      }
+      const peakZval = cz[best]
+      // Map the cost-volume depth index onto the sigma z-grid for the marker.
+      let sIdx = 0
+      let sBest = Infinity
+      for (let i = 0; i < z.length; i++) {
+        const d = Math.abs(z[i] - peakZval)
+        if (d < sBest) {
+          sBest = d
+          sIdx = i
+        }
+      }
+      return { peakZ: peakZval, peakIdx: sIdx }
+    }
     for (let i = 0; i < sigma1.length; i++) {
       const r = sigma2[i] / Math.max(1e-12, sigma1[i])
       if (r > bestVal) {
@@ -129,7 +175,7 @@ function SigmaPlot({ sv, pixel }: { sv: SigmaVolumeData; pixel: Pixel }) {
       }
     }
     return { peakZ: z[best], peakIdx: best }
-  }, [z, sigma1, sigma2])
+  }, [z, sigma1, sigma2, cv, pixel])
 
   // Plot on a log y-axis: sigma_1 can be many orders of magnitude smaller than
   // sigma_3 at the rank-deficient depth, and the "dip" we want to show only
